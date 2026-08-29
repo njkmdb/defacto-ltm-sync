@@ -8,3 +8,4 @@ from .master_prompt_schemas import *
 from .scheduler_schemas import *
 from .dashboard_schemas import *
 from .creative_schemas import *
+from .pipeline_builder_schemas import *

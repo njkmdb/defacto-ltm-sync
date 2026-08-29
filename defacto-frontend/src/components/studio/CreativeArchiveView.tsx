@@ -36,7 +36,8 @@ export default function CreativeArchiveView() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: async (id: number) => await deleteEventCreation(id),
+    // 💡 삭체 요청 시 테넌트 ID 전달 연동
+    mutationFn: async ({ id, baseEntityId }: { id: number, baseEntityId: number }) => await deleteEventCreation(id, baseEntityId),
     onSuccess: (data) => {
       alert(data.message);
       queryClient.invalidateQueries({ queryKey: ['eventCreations'] });
@@ -53,7 +54,6 @@ export default function CreativeArchiveView() {
     if (selectedIds.length === 0) return;
     const flatData = (creationsData?.data?.filter((i: any) => selectedIds.includes(i.creation_id)) || []).map((item: any) => ({ 
       CREATION_ID: item.creation_id, 
-      // 💡 [치명적 결함 해결] 다중 sources 배열을 순회하여 온전한 문자열로 추출 
       SOURCES: item.sources?.map((s: any) => `${s.source_type} #${s.source_id}`).join(', ') || '',
       ENTITY_ID: item.base_entity_id, 
       TONE_NAME: item.tone_name,
@@ -87,8 +87,6 @@ export default function CreativeArchiveView() {
 
   return (
     <div className="animate-in fade-in zoom-in duration-300">
-      
-      {/* 검색 및 필터 UI */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6 flex flex-col gap-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -154,17 +152,17 @@ export default function CreativeArchiveView() {
                       <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1"><Type className="w-3.5 h-3.5"/> 톤앤매너: {creation.tone_name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); if(confirm("정말 영구 삭제하시겠습니까?")) deleteMut.mutate(creation.creation_id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="삭제"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); if(confirm("정말 영구 삭제하시겠습니까?")) deleteMut.mutate({ id: creation.creation_id, baseEntityId: creation.base_entity_id }); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="삭제"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                   
-                  {/* 💡 [치명적 결함 해결] Card 뷰 다중 소스 식별자 렌더링 정상화 */}
+                  {/* 💡 Alert 남용 제거 및 Title 툴팁 힌트로 교체 */}
                   <div className="flex flex-wrap items-center gap-1.5 pl-1">
                     {creation.sources?.map((src: any, idx: number) => (
-                       <span key={idx} className="flex items-center gap-1 bg-white border border-gray-300 px-2 py-0.5 rounded-lg shadow-sm">
-                         <Database className="w-3.5 h-3.5 text-gray-400"/>
-                         <span className="text-[10px] font-extrabold text-gray-500">Source: {src.source_type} #{src.source_id}</span>
-                       </span>
+                       <div key={idx} className="flex items-center gap-1.5 bg-white border border-gray-300 px-2.5 py-1 rounded-lg shadow-sm group" title="추후 원본 소스 추적 라우팅이 지원될 예정입니다.">
+                         <Database className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500"/>
+                         <span className="text-[10px] font-extrabold text-gray-500 group-hover:text-blue-600">Source: {src.source_type} #{src.source_id}</span>
+                       </div>
                     ))}
                   </div>
                 </div>
@@ -198,7 +196,6 @@ export default function CreativeArchiveView() {
                     <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={isSelected} onChange={() => toggleSelect(creation.creation_id)} className="w-4 h-4 text-purple-600 rounded cursor-pointer" /></td>
                     <td className="p-3 text-sm font-bold text-gray-700">{creation.creation_id}</td>
                     
-                    {/* 💡 [치명적 결함 해결] List 뷰 다중 소스 식별자 렌더링 정상화 */}
                     <td className="p-3 text-xs font-bold text-gray-500">
                       {creation.sources?.map((s: any) => `${s.source_type} #${s.source_id}`).join(', ')}
                     </td>

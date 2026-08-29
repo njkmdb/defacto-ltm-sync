@@ -46,3 +46,4 @@ defacto-memo/
 venv/
 gcp-key.json
 *-key.json
+uploads_nvme/

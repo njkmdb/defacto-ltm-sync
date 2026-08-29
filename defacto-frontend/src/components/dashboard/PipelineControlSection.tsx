@@ -2,12 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'; 
-import { Play, RefreshCw, CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Loader2, Filter, ChevronLeft, ChevronRight } from 'lucide-react'; 
-import { triggerStructureEvents, getPipelineStatus, deleteRawEvent, deleteBulkRawEvents } from '@/lib/api/pipeline'; 
+import { Play, RefreshCw, CheckCircle, XCircle, Clock, Plus, Trash2, Edit2, Loader2, Filter, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'; 
+import { triggerStructureEvents, getPipelineStatus, deleteRawEvent, deleteBulkRawEvents, getImpactAnalysis } from '@/lib/api/pipeline'; 
 import CreateRawModal from '@/components/modals/CreateRawModal';
 import EditRawModal from '@/components/modals/EditRawModal';
 
-// 💡 [아키텍처 개선] 수백 페이지가 넘어가도 UI가 깨지지 않도록 Windowing 기법 도입
 const getPageNumbers = (current: number, total: number) => {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
   if (current <= 3) return [1, 2, 3, 4, 5];
@@ -17,6 +16,7 @@ const getPageNumbers = (current: number, total: number) => {
 
 export default function PipelineControlSection() {
   const queryClient = useQueryClient(); 
+  const baseEntityId = 1024; // 💡 현재 접속된 Tenant ID 하드코딩 주입
 
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -25,33 +25,44 @@ export default function PipelineControlSection() {
   const [limit, setLimit] = useState<number>(5);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
+  const [isImpactModalOpen, setIsImpactModalOpen] = useState(false);
+  const [impactData, setImpactData] = useState<any>(null);
+  const [targetDeleteRawId, setTargetDeleteRawId] = useState<number | null>(null);
+  const [isImpactLoading, setIsImpactLoading] = useState(false);
+
   useEffect(() => {
     setPage(1);
     setSelectedIds([]);
   }, [startDate, endDate, limit, statusFilter]);
 
   const { data: pipelineStatus, isLoading: isStatusLoading } = useQuery({
-    queryKey: ['pipelineStatus', page, limit, startDate, endDate, statusFilter],
-    queryFn: () => getPipelineStatus({ page, limit, startDate, endDate, statusFilter }),
+    // 💡 쿼리 키 및 Fetch 함수에 baseEntityId 파라미터 연동
+    queryKey: ['pipelineStatus', baseEntityId, page, limit, startDate, endDate, statusFilter],
+    queryFn: () => getPipelineStatus({ baseEntityId, page, limit, startDate, endDate, statusFilter }),
     refetchInterval: 3000 
   });
 
   const currentMeta = pipelineStatus?.meta;
 
   const structureMutation = useMutation({
-    mutationFn: async ({ ids, retry }: { ids: number[], retry: boolean }) => triggerStructureEvents(ids, 1, 'HierarchicalFactSchema', retry),
+    mutationFn: async ({ ids, retry }: { ids: number[], retry: boolean }) => triggerStructureEvents(ids, baseEntityId, 'HierarchicalFactSchema', retry),
     onSuccess: () => { setSelectedIds([]); queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] }); },
     onError: () => alert("백엔드 통신에 실패했습니다.")
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (rawId: number) => deleteRawEvent(rawId),
-    onSuccess: (data) => { alert(data.message); queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] }); },
+    mutationFn: (rawId: number) => deleteRawEvent(rawId, baseEntityId),
+    onSuccess: (data) => { 
+      alert(data.message); 
+      setIsImpactModalOpen(false);
+      setSelectedIds(prev => prev.filter(id => id !== targetDeleteRawId));
+      queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] }); 
+    },
     onError: (error: any) => alert(error.response?.data?.detail || "삭제에 실패했습니다.")
   });
 
   const bulkDeleteMutation = useMutation({
-    mutationFn: (rawIds: number[]) => deleteBulkRawEvents(rawIds),
+    mutationFn: (rawIds: number[]) => deleteBulkRawEvents(rawIds, baseEntityId),
     onSuccess: (data) => { alert(data.message); setSelectedIds([]); queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] }); },
     onError: (error: any) => alert(error.response?.data?.detail || "일괄 삭제에 실패했습니다.")
   });
@@ -65,8 +76,28 @@ export default function PipelineControlSection() {
 
   const toggleSelect = (id: number) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
+  const handleSingleDeleteClick = async (rawId: number) => {
+    setTargetDeleteRawId(rawId);
+    setIsImpactLoading(true);
+    try {
+      const res = await getImpactAnalysis(rawId, baseEntityId);
+      setImpactData(res);
+      setIsImpactModalOpen(true);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "영향도 분석에 실패했습니다.");
+    } finally {
+      setIsImpactLoading(false);
+    }
+  };
+
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
+    
+    if (selectedIds.length === 1) {
+      handleSingleDeleteClick(selectedIds[0]);
+      return;
+    }
+
     if (confirm(`선택한 ${selectedIds.length}개의 데이터를 정말 삭제하시겠습니까?\n해당 날짜에 연관된 AI 기억도 모두 일괄 초기화됩니다.`)) {
       bulkDeleteMutation.mutate(selectedIds);
     }
@@ -81,8 +112,8 @@ export default function PipelineControlSection() {
   const [isEditModalOpen, setIsEditOpen] = useState(false);
   const [editModalData, setEditModalData] = useState<{ rawId: number; baseEntityId: number; content: string; date: string } | null>(null);
 
-  const openEditModal = (rawId: number, baseEntityId: number, content: string, date: string) => {
-    setEditModalData({ rawId, baseEntityId, content, date });
+  const openEditModal = (rawId: number, entityId: number, content: string, date: string) => {
+    setEditModalData({ rawId, baseEntityId: entityId, content, date });
     setIsEditOpen(true);
   };
 
@@ -144,9 +175,11 @@ export default function PipelineControlSection() {
         </div>
       </div>
 
-      <div className="flex-1 border border-gray-200 rounded-xl bg-gray-50 p-2 overflow-hidden">
-        {isStatusLoading ? (
-          <p className="text-center text-gray-400 mt-10 text-sm flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> 데이터를 불러오는 중...</p>
+      <div className="flex-1 border border-gray-200 rounded-xl bg-gray-50 p-2 overflow-hidden relative">
+        {isStatusLoading || isImpactLoading ? (
+          <p className="text-center text-gray-400 mt-10 text-sm flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> 데이터를 처리하고 있습니다...
+          </p>
         ) : (
           <ul className="space-y-2">
             {pipelineStatus?.data_list.length === 0 ? (
@@ -192,8 +225,61 @@ export default function PipelineControlSection() {
         </select>
       </div>
 
+      {isImpactModalOpen && impactData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100]">
+           <div className="bg-white p-6 rounded-2xl w-[600px] shadow-2xl">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-6 h-6 text-amber-500" /> 삭제 영향도 분석 (Raw ID: {targetDeleteRawId})
+              </h3>
+              {impactData.affected_count > 0 ? (
+                <div className="mb-4 bg-red-50 text-red-700 p-4 rounded-xl border border-red-200">
+                  <p className="font-bold mb-2">이 데이터를 삭제하면 총 {impactData.affected_count}건의 2차 산출물이 참조 고아가 됩니다.</p>
+                  <ul className="list-disc pl-5 text-sm space-y-1 max-h-32 overflow-y-auto">
+                     {impactData.affected_items.map((it: any, i: number) => (
+                        <li key={i}>[{it.item_type}] ID {it.item_id}: {it.title_or_summary}</li>
+                     ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="mb-4 text-emerald-700 bg-emerald-50 p-4 rounded-xl font-bold border border-emerald-200">
+                  이 데이터를 삭제해도 하위 산출물에 미치는 영향이 없습니다.
+                </p>
+              )}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+                 <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" checked readOnly className="mt-1 w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-bold text-gray-800">
+                       산출물은 보존하고 참조 링크만 끊기 (SOFT_DISCONNECT)
+                       <span className="block text-xs font-normal text-gray-500 mt-1">
+                         물리적 팩트와 임베딩 메모리는 제거하되, 생성된 요약 리포트와 창작물 자체는 보존합니다.
+                       </span>
+                    </span>
+                 </label>
+              </div>
+              <div className="flex justify-end gap-3">
+                 <button onClick={() => setIsImpactModalOpen(false)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">취소</button>
+                 <button onClick={() => {
+                    if (targetDeleteRawId) deleteMutation.mutate(targetDeleteRawId);
+                 }} disabled={deleteMutation.isPending} className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors disabled:opacity-50">
+                   {deleteMutation.isPending && <RefreshCw className="w-4 h-4 animate-spin" />} 위 조건으로 삭제 승인
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       <CreateRawModal isOpen={isCreateModalOpen} onClose={() => setIsCreateOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })} />
-      <EditRawModal isOpen={isEditModalOpen} onClose={() => setIsEditOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })} initialData={editModalData} />
+      
+      <EditRawModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditOpen(false)} 
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })} 
+        initialData={editModalData} 
+        onDeleteRequest={(rawId) => {
+          setIsEditOpen(false);
+          handleSingleDeleteClick(rawId);
+        }}
+      />
     </div>
   );
 }

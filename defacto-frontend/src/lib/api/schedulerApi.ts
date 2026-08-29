@@ -1,8 +1,10 @@
 import axios from 'axios';
 const apiClient = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080', headers: { 'Content-Type': 'application/json' } });
 
-export const triggerBulkSynthesize = async (reference_date: string) => {
-  const response = await apiClient.post('/api/v1/core/bulk-synthesize', { reference_date });
+export const triggerBulkSynthesize = async (reference_date: string, pipeline_id?: string) => {
+  const payload: any = { reference_date };
+  if (pipeline_id) payload.pipeline_id = pipeline_id;
+  const response = await apiClient.post('/api/v1/core/bulk-synthesize', payload);
   return response.data;
 };
 

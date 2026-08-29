@@ -2,17 +2,18 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getPipelineStatus } from '@/lib/api';
+import { getPipelineStatus } from '@/lib/api/pipeline'; // 💡 경로 명시적 수정
 import { ChevronLeft, ChevronRight } from 'lucide-react'; 
 
 export default function PipelineList() {
+  const baseEntityId = 1024; // 💡 현재 접속된 Tenant ID 하드코딩 주입
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(20);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['pipelineStatus', page, limit],
-    // 💡 [핵심 교정] API 호출 시 객체 형태로 파라미터 전달 (타입스크립트 에러 및 422 에러 원천 해결)
-    queryFn: () => getPipelineStatus({ page, limit }), 
+    // 💡 쿼리 키 및 Fetch 함수에 baseEntityId 파라미터 연동
+    queryKey: ['pipelineStatus', baseEntityId, page, limit],
+    queryFn: () => getPipelineStatus({ baseEntityId, page, limit }), 
     refetchInterval: 3000, 
   });
 

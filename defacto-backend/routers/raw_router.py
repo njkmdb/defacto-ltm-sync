@@ -1,10 +1,12 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from database.database import get_db, SessionLocal
+from database.models import EventRaw
 from schemas.api_schemas import (
     CreateRawEventRequest, UpdateRawEventRequest, RawEventResponse,
-    BulkDeleteRequest, StructureEventsRequest
+    BulkDeleteRequest, StructureEventsRequest,
+    RawEventStatusResponse, ImpactAnalysisResponse
 )
 from services import raw_event_service, pipeline_service
 
@@ -41,16 +43,54 @@ async def update_raw_event(raw_id: int, request: UpdateRawEventRequest, backgrou
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/raw-events/{raw_id}/impact", response_model=ImpactAnalysisResponse)
+def get_raw_event_impact(raw_id: int, base_entity_id: int = Query(..., description="보안 검증용"), db: Session = Depends(get_db)):
+    try:
+        return raw_event_service.analyze_raw_event_impact(raw_id, base_entity_id, db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/raw-events/{raw_id}/status", response_model=RawEventStatusResponse)
+def get_raw_event_status(raw_id: int, base_entity_id: int = Query(..., description="보안 검증용"), db: Session = Depends(get_db)):
+    try:
+        return raw_event_service.get_raw_event_status(raw_id, base_entity_id, db)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/raw-events/{raw_id}")
+def get_raw_event_detail(raw_id: int, base_entity_id: int = Query(..., description="보안 검증용"), db: Session = Depends(get_db)):
+    try:
+        raw_record = db.query(EventRaw).filter(
+            EventRaw.raw_id == raw_id,
+            EventRaw.base_entity_id == base_entity_id
+        ).first()
+        if not raw_record:
+            raise HTTPException(status_code=404, detail="해당 데이터를 찾을 수 없거나 접근 권한이 없습니다.")
+        return {
+            "status": "success",
+            "data": {
+                "raw_id": raw_record.raw_id,
+                "base_entity_id": raw_record.base_entity_id,
+                "event_date": raw_record.event_date,
+                "raw_content": raw_record.raw_content,
+                "sync_status_id": raw_record.sync_status_id,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.delete("/raw-events/{raw_id}", response_model=RawEventResponse)
-async def delete_raw_event(raw_id: int, db: Session = Depends(get_db)):
+async def delete_raw_event(raw_id: int, base_entity_id: int = Query(..., description="보안 검증용"), cascade_mode: str = Query("SOFT_DISCONNECT"), db: Session = Depends(get_db)):
     try: 
-        return await raw_event_service.delete_raw_event(raw_id, db)
+        return await raw_event_service.delete_raw_event(raw_id, base_entity_id, cascade_mode, db)
     except Exception as e: 
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/raw-events/bulk-delete", response_model=RawEventResponse)
 async def delete_bulk_raw_events(request: BulkDeleteRequest, db: Session = Depends(get_db)):
     try: 
-        return await raw_event_service.delete_bulk_raw_events(request.raw_ids, db)
+        return await raw_event_service.delete_bulk_raw_events(request.raw_ids, request.base_entity_id, db)
     except Exception as e: 
         raise HTTPException(status_code=500, detail=str(e))

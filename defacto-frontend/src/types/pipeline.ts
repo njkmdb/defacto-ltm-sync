@@ -1,5 +1,35 @@
 import { ActionItem, PaginationMeta } from './common';
 
+export interface ImpactedItem {
+  item_type: 'BRIEFING' | 'CREATION';
+  item_id: number;
+  title_or_summary: string;
+}
+
+export interface ImpactAnalysisResponse {
+  status: string;
+  affected_count: number;
+  affected_items: ImpactedItem[];
+}
+
+export interface DiscrepancyItem {
+  source_raw_id: number;
+  issue_topic: string;
+  ai_memory_value: string;
+  ext_truth_value: string;
+  recommended_correction: string;
+}
+
+export interface FactCheckSchema {
+  has_conflict: boolean;
+  discrepancies: DiscrepancyItem[];
+}
+
+export interface FactCheckRequest {
+  base_entity_id: number;
+  reference_date: string;
+}
+
 export interface StructureEventsRequest {
   base_entity_id: number;
   target_raw_ids: number[];

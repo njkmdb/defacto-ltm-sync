@@ -1,3 +1,9 @@
+export interface RawEventStatusResponse {
+  raw_id: number;
+  sync_status_id: number;
+  error_log?: string | null;
+}
+
 export interface CreateRawEventRequest {
   base_entity_id: number;
   event_date: string; 

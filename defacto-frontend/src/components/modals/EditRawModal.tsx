@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { X, RefreshCw, Edit2, Trash2 } from 'lucide-react';
-import { updateRawEvent, deleteRawEvent } from '@/lib/api/pipeline';
+import { updateRawEvent } from '@/lib/api/pipeline';
 
 interface EditRawModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   initialData: { rawId: number; baseEntityId: number; content: string; date: string } | null;
+  onDeleteRequest?: (rawId: number) => void;
 }
 
-export default function EditRawModal({ isOpen, onClose, onSuccess, initialData }: EditRawModalProps) {
+export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, onDeleteRequest }: EditRawModalProps) {
   const [editData, setEditData] = useState({ rawId: 0, baseEntityId: 0, content: '', date: '', runNow: true });
 
   useEffect(() => {
@@ -37,16 +38,6 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData }
     onError: (error: any) => alert(error.response?.data?.detail || "교정에 실패했습니다.")
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (rawId: number) => deleteRawEvent(rawId),
-    onSuccess: (data) => {
-      alert(data.message);
-      onSuccess();
-      onClose();
-    },
-    onError: (error: any) => alert(error.response?.data?.detail || "삭제에 실패했습니다.")
-  });
-
   const handleEditSubmit = () => {
     if (!editData.content.trim()) return alert("텍스트를 입력해주세요.");
     updateMutation.mutate({
@@ -62,8 +53,8 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData }
   };
 
   const handleDelete = () => {
-    if (confirm("정말 이 데이터를 삭제하시겠습니까?\n연관된 모든 AI 기억 및 팩트 데이터도 함께 영구 삭제(물리 삭제)됩니다.")) {
-      deleteMutation.mutate(editData.rawId);
+    if (onDeleteRequest) {
+      onDeleteRequest(editData.rawId);
     }
   };
 
@@ -133,10 +124,9 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData }
         <div className="mt-8 flex justify-between items-center">
           <button 
             onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-            className="px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
           >
-            {deleteMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            <Trash2 className="w-4 h-4" />
             데이터 삭제
           </button>
           

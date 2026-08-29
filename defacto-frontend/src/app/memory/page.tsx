@@ -10,6 +10,9 @@ import EventBriefingModal from '@/components/memory/EventBriefingModal';
 
 export default function MemoryPage() {
   const queryClient = useQueryClient();
+  
+  // 💡 [보안 결함 수정] null 허용 상태를 제거하고 현재 테넌트 ID 고정 주입
+  const baseEntityId = 1024;
 
   const [isFilterOpen, setIsFilterOpen] = useState<boolean>(true);
   const [queryText, setQueryText] = useState<string>('');
@@ -17,7 +20,6 @@ export default function MemoryPage() {
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(10);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(1.0);
-  const [baseEntityId, setBaseEntityId] = useState<number | null>(null);
   const [includeDwh, setIncludeDwh] = useState<boolean>(false);
   const [conditions, setConditions] = useState<SearchCondition[]>([{ id: Date.now(), target: 'CONTENT', keyword: '', operator: 'AND' }]);
   
@@ -52,7 +54,7 @@ export default function MemoryPage() {
     setActiveSearchParams({
       query_text: queryText,
       distance_threshold: distanceThreshold,
-      base_entity_id: baseEntityId,
+      base_entity_id: baseEntityId, // 💡 전역 검색 방지를 위해 무조건 현재 테넌트 강제 전송
       search_conditions: validConds.length > 0 ? JSON.stringify(validConds) : null,
       include_dwh: includeDwh
     });
@@ -66,7 +68,8 @@ export default function MemoryPage() {
     if (results.length > 0 && selectedIds.length === results.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(results.map(item => item.memory_id));
+      // 💡 [타입 에러 수정] item 매개변수에 MemorySearchResultItem 타입 명시
+      setSelectedIds(results.map((item: MemorySearchResultItem) => item.memory_id));
     }
   };
 
@@ -142,15 +145,14 @@ export default function MemoryPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center justify-between">
-                    <span>Base Entity ID (Filter)</span>
-                    <span className="text-[10px] text-gray-400 font-normal">(특정 주체 한정)</span>
+                    <span>Base Entity ID (Tenant)</span>
+                    <span className="text-[10px] text-emerald-500 font-bold">(보안 격리 활성화됨)</span>
                   </label>
                   <input 
-                    type="number" 
-                    value={baseEntityId || ''} 
-                    onChange={(e) => setBaseEntityId(e.target.value ? parseInt(e.target.value) : null)}
-                    placeholder="예: 1024 (선택사항)"
-                    className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 focus:bg-white transition-colors font-medium text-gray-700"
+                    type="text" 
+                    value={baseEntityId} 
+                    readOnly
+                    className="w-full px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-bold text-gray-500 cursor-not-allowed"
                   />
                 </div>
                 
@@ -203,7 +205,8 @@ export default function MemoryPage() {
         )}
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {results.map((item) => (
+          {/* 💡 [타입 에러 수정] item 매개변수에 MemorySearchResultItem 타입 명시 */}
+          {results.map((item: MemorySearchResultItem) => (
             <div 
               key={item.memory_id} 
               onClick={() => toggleSelect(item.memory_id)}
@@ -306,7 +309,7 @@ export default function MemoryPage() {
         onClose={() => setIsBriefingModalOpen(false)} 
         selectedMemoryIds={selectedIds}
         queryText={activeSearchParams?.query_text || ''}
-        baseEntityId={baseEntityId || 1024}
+        baseEntityId={baseEntityId}
         onSaveSuccess={() => {
           setSelectedIds([]);
           queryClient.invalidateQueries({ queryKey: ['eventLogs'] });

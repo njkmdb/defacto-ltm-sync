@@ -38,12 +38,12 @@ export const getEventCreations = async (page: number = 1, limit: number = 20, ba
   return response.data;
 };
 
-export const deleteEventCreation = async (creationId: number) => {
-  const response = await apiClient.delete(`/api/v1/core/creative/${creationId}`);
+export const deleteEventCreation = async (creationId: number, baseEntityId: number) => {
+  const response = await apiClient.delete(`/api/v1/core/creative/${creationId}?base_entity_id=${baseEntityId}`);
   return response.data;
 };
 
-export const getEventCreation = async (creationId: number) => {
-  const response = await apiClient.get(`/api/v1/core/creative/${creationId}`);
+export const getEventCreation = async (creationId: number, baseEntityId: number) => {
+  const response = await apiClient.get(`/api/v1/core/creative/${creationId}?base_entity_id=${baseEntityId}`);
   return response.data;
 };

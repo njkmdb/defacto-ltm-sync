@@ -4,6 +4,7 @@ from typing import Optional
 
 class BulkSynthesizeRequest(BaseModel):
     reference_date: date
+    pipeline_id: Optional[str] = Field(None, description="동적 파이프라인 설계도 ID (없으면 기본 라우팅)")
 
 class BulkSynthesizeResponse(BaseModel):
     job_id: str

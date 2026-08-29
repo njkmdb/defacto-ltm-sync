@@ -12,7 +12,7 @@ from schemas.api_schemas import (
     BatchJobStatusResponse, ForceSyncResponse, ExtSyncHistoryItem,
     UpdateIntervalRequest
 )
-from services.pipeline_service import bulk_synthesize_task
+from services.batch_service import bulk_synthesize_task
 from services.scheduler_service import run_ext_sync_job, get_ext_sync_interval, update_ext_sync_interval
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def trigger_bulk_synthesize(request: BulkSynthesizeRequest, background_tas
         db.commit()
         
         if total_count > 0:
-            background_tasks.add_task(bulk_synthesize_task, job_id, request.reference_date, entity_ids)
+            background_tasks.add_task(bulk_synthesize_task, job_id, request.reference_date, entity_ids, request.pipeline_id)
         else:
             new_job.status = "COMPLETED"
             db.commit()

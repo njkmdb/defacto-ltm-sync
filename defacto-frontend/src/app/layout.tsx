@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import Link from 'next/link';
-import { Activity, Archive, Database, BrainCircuit, Beaker, Sparkles } from 'lucide-react';
+import { Activity, Archive, Database, BrainCircuit, Beaker, Sparkles, Server, Workflow } from 'lucide-react';
 import './globals.css';
-import Providers from '@/components/Providers'; 
+import Providers from '@/components/Providers';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -35,6 +35,9 @@ export default function RootLayout({
                   <Link href="/" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">
                     <Activity className="w-4 h-4" /> 파이프라인 관제
                   </Link>
+                  <Link href="/builder" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors">
+                    <Workflow className="w-4 h-4" /> 파이프라인 빌더
+                  </Link>
                   <Link href="/archive" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">
                     <Archive className="w-4 h-4" /> 일지 보관소
                   </Link>
@@ -49,6 +52,9 @@ export default function RootLayout({
                   </Link>
                   <Link href="/studio" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors">
                     <Sparkles className="w-4 h-4" /> 창작 스튜디오
+                  </Link>
+                  <Link href="/system" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-teal-600 hover:text-teal-700 hover:bg-teal-50 transition-colors">
+                    <Server className="w-4 h-4" /> 시스템 데이터
                   </Link>
                 </nav>
               </div>

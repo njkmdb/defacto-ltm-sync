@@ -33,7 +33,6 @@ export default function BriefingArchiveView() {
   const [selectedBriefing, setSelectedBriefing] = useState<any>(null);
   const [isBriefingViewerOpen, setIsBriefingViewerOpen] = useState(false);
   
-  // 💡 모달 내 책갈피 탭 상태 추가
   const [activeModalTab, setActiveModalTab] = useState<'EDIT' | 'AUDIT'>('EDIT');
   const [editFormData, setEditFormData] = useState({ query_text: '', executive_summary: '', key_findings: '', risk_and_warnings: '', recommended_actions: '' });
 
@@ -42,10 +41,10 @@ export default function BriefingArchiveView() {
     queryFn: () => getEventBriefings(page, limit, undefined, startDate, endDate, appliedConditions),
   });
 
-  // 💡 모달이 열려있고 선택된 리포트가 있을 때만 감사 추적 데이터 로드
   const { data: auditData, isLoading: isAuditLoading } = useQuery({
-    queryKey: ['auditTrail', selectedBriefing?.briefing_id],
-    queryFn: () => getBriefingAuditTrail(selectedBriefing?.briefing_id),
+    // 💡 [단건 조회 방어막] 모달 열람 시 테넌트 ID 전달
+    queryKey: ['auditTrail', selectedBriefing?.briefing_id, selectedBriefing?.base_entity_id],
+    queryFn: () => getBriefingAuditTrail(selectedBriefing.briefing_id, selectedBriefing.base_entity_id),
     enabled: isBriefingViewerOpen && !!selectedBriefing
   });
 
@@ -60,7 +59,8 @@ export default function BriefingArchiveView() {
   });
 
   const bulkDeleteMut = useMutation({
-    mutationFn: async (ids: number[]) => await deleteBulkEventBriefings(ids),
+    // 💡 [삭제 방어막] 대표 주체 ID 전달 (UI에서는 다중 선택의 첫번째 항목 기준)
+    mutationFn: async (ids: number[]) => await deleteBulkEventBriefings(ids, briefingsData?.data?.find((b: any) => ids.includes(b.briefing_id))?.base_entity_id || 1024),
     onSuccess: (data) => {
       alert(data.message);
       setSelectedIds([]);
@@ -99,7 +99,6 @@ export default function BriefingArchiveView() {
     link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  // 💡 열람 시 활성 탭 초기화 로직 추가
   const openEditModal = (briefing: any) => {
     setSelectedBriefing(briefing);
     setActiveModalTab('EDIT');
@@ -118,6 +117,7 @@ export default function BriefingArchiveView() {
     updateMut.mutate({
       id: selectedBriefing.briefing_id,
       data: {
+        base_entity_id: selectedBriefing.base_entity_id,
         query_text: editFormData.query_text,
         executive_summary: editFormData.executive_summary,
         key_findings: editFormData.key_findings.split('\n- ').filter(Boolean),
@@ -215,7 +215,6 @@ export default function BriefingArchiveView() {
                     <span className="text-sm font-bold text-gray-600 flex items-center gap-1.5"><User className="w-4 h-4"/> Target Entity: {briefing.base_entity_id}</span>
                     <span className="text-sm font-medium text-gray-400">생성일: {formatDateStr(briefing.ne_ts)}</span>
                   </div>
-                  {/* 💡 개별 액션 버튼 영역 삭제됨 */}
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-gray-400 mb-2 uppercase flex items-center gap-1"><Search className="w-3.5 h-3.5" /> Query Text (프롬프트 질의)</h4>
@@ -240,7 +239,6 @@ export default function BriefingArchiveView() {
                 <th className="p-3 w-32 text-xs font-extrabold text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="p-3 w-64 text-xs font-extrabold text-gray-500 uppercase tracking-wider">Query Text</th>
                 <th className="p-3 text-xs font-extrabold text-gray-500 uppercase tracking-wider min-w-[300px]">Executive Summary</th>
-                {/* 💡 Actions 헤더 삭제됨 */}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -254,7 +252,6 @@ export default function BriefingArchiveView() {
                     <td className="p-3"><span className="text-[10px] font-bold bg-white border border-gray-200 text-gray-600 px-2 py-1 rounded">{formatDateStr(briefing.ne_ts)}</span></td>
                     <td className="p-3 text-sm text-gray-800 truncate max-w-[250px]">{briefing.query_text}</td>
                     <td className="p-3 text-sm text-gray-600 truncate max-w-[400px]">{briefing.executive_summary}</td>
-                    {/* 💡 개별 액션 버튼 셀 삭제됨 */}
                   </tr>
                 );
               })}
@@ -281,7 +278,6 @@ export default function BriefingArchiveView() {
         </div>
       )}
 
-      {/* 💡 요약 리포트 열람 및 편집 모달 (책갈피 탭 통합) */}
       {isBriefingViewerOpen && selectedBriefing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gray-50 rounded-2xl w-[900px] max-w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden">
@@ -291,11 +287,9 @@ export default function BriefingArchiveView() {
                   <h2 className="text-xl font-extrabold flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-400" /> 리포트 열람 및 교정</h2>
                   <p className="text-xs text-gray-400 mt-1">Briefing ID: {selectedBriefing.briefing_id} | Target Entity: {selectedBriefing.base_entity_id}</p>
                 </div>
-                {/* 💡 삭제 버튼은 제거됨 */}
                 <button onClick={() => setIsBriefingViewerOpen(false)} className="text-gray-400 hover:text-white transition-colors p-1.5"><X className="w-6 h-6" /></button>
               </div>
               
-              {/* 💡 교정 / 감사 추적 책갈피 탭 */}
               <div className="flex gap-1">
                 <button 
                   onClick={() => setActiveModalTab('EDIT')} 

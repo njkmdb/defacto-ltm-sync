@@ -115,27 +115,27 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
   };
 
   const { data: sourceContent = '', isLoading: isSourceLoading } = useQuery({
-    queryKey: ['sourceContent', sourceType, sourceId],
+    queryKey: ['sourceContent', sourceType, sourceId, baseEntityId],
     queryFn: async () => {
-      if (!sourceId || !sourceType) return '';
+      if (!sourceId || !sourceType || !baseEntityId) return '';
       if (sourceType === 'LOG') {
-        const res = await getEventLog(sourceId);
+        const res = await getEventLog(sourceId, baseEntityId);
         return res.data.llm_summary;
       } else if (sourceType === 'BRIEFING') {
-        const res = await getEventBriefing(sourceId);
+        const res = await getEventBriefing(sourceId, baseEntityId);
         const b = res.data;
         const findingsStr = b.key_findings?.length ? b.key_findings.join('\n- ') : '없음';
         const risksStr = b.risk_and_warnings?.length ? b.risk_and_warnings.join('\n- ') : '없음';
         const actionsStr = b.recommended_actions?.length ? b.recommended_actions.join('\n- ') : '없음';
         return `■ 총평\n${b.executive_summary}\n\n■ 주요 발견\n- ${findingsStr}\n\n■ 위험/경고\n- ${risksStr}\n\n■ 행동 지침\n- ${actionsStr}`;
       } else if (sourceType === 'CREATION') {
-        const res = await getEventCreation(sourceId);
+        const res = await getEventCreation(sourceId, baseEntityId);
         const c = res.data;
         return `■ 원본 창작물 제목: ${c.creative_title}\n\n■ 창작물 내용:\n${c.creative_content}`;
       }
       return '';
     },
-    enabled: !!sourceId && !!sourceType
+    enabled: !!sourceId && !!sourceType && !!baseEntityId
   });
 
   const { data: recentLogs, isLoading: isLogsLoading } = useQuery({ 
@@ -178,8 +178,16 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
         source_type: s.type,
         source_id: s.id
       }));
+      
+      if (checkedSources.length === 0) {
+          throw new Error("저장할 소스가 최소 1개 이상 선택되어야 합니다.");
+      }
+      
+      const rep = selectedSources.find(s => s.isChecked) || selectedSources[0]; 
+
       return await generateCreativeContent({ 
         sources: checkedSources, 
+        base_entity_id: rep.baseEntityId, 
         system_instruction: systemPrompt, 
         temperature, 
         max_length: maxLength 
@@ -189,16 +197,20 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       setCreativeContent(data.data.creative_content);
       setCreativeTitle(data.data.creative_title);
     },
-    onError: (err: any) => alert(err.response?.data?.detail || "AI 팩트 훼손 감지(Hallucination Block) 또는 오류가 발생했습니다.")
+    onError: (err: any) => alert(err.response?.data?.detail || err.message || "AI 팩트 훼손 감지(Hallucination Block) 또는 오류가 발생했습니다.")
   });
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      // 💡 [Shadow Drop 해결] 선택된 모든 소스를 JSON 배열로 저장
       const checkedSources = selectedSources.filter(s => s.isChecked).map(s => ({
         source_type: s.type,
         source_id: s.id
       }));
+      
+      if (checkedSources.length === 0) {
+          throw new Error("저장할 소스가 최소 1개 이상 선택되어야 합니다.");
+      }
+      
       const rep = selectedSources.find(s => s.isChecked) || selectedSources[0]; 
       return await saveCreativeContent({
         sources: checkedSources,
@@ -213,7 +225,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       queryClient.invalidateQueries({ queryKey: ['eventCreations'] });
       onNavigateArchive(); 
     },
-    onError: (err: any) => alert(err.response?.data?.detail || "저장에 실패했습니다.")
+    onError: (err: any) => alert(err.response?.data?.detail || err.message || "저장에 실패했습니다.")
   });
 
   const savePresetMut = useMutation({
@@ -265,11 +277,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
 
   return (
     <div className="w-full h-auto flex flex-col bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-      
-      {/* TOP ROW (원본 팩트 + 톤앤매너 제어) */}
       <div className="flex flex-row h-[850px] border-b border-gray-200 shrink-0">
-        
-        {/* COL 1: 원본 데이터 소스 */}
         <div className="w-[50%] bg-gray-50 flex flex-col border-r border-gray-200 shrink-0 overflow-hidden">
           <div className="p-4 bg-gray-100 border-b border-gray-200 flex justify-between items-center shrink-0">
             <h3 className="font-bold flex items-center gap-2 text-gray-700">
@@ -337,14 +345,11 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
           </div>
         </div>
         
-        {/* COL 2: 프롬프트 컨트롤 센터 */}
         <div className="w-[50%] bg-white flex flex-col shrink-0">
           <div className="p-4 bg-purple-50/50 border-b border-gray-200 shrink-0">
             <h3 className="font-bold flex items-center gap-2 text-purple-800"><Wand2 className="w-4 h-4"/> 2. 톤앤매너 제어 (Meta-Prompt)</h3>
           </div>
           <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-5">
-            
-            {/* 상단: 프리셋 및 마법사 모드 */}
             <div className="flex flex-col gap-4 shrink-0">
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -391,7 +396,6 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
               </div>
             </div>
 
-            {/* 하단: 프롬프트 에디터 및 창작 시작 버튼 */}
             <div className="flex-1 flex flex-col border-t border-gray-100 pt-4 min-h-0">
               <div className="mb-2 flex items-center justify-between">
                  <label className="text-xs font-bold text-gray-500">
@@ -444,12 +448,10 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                 {checkedCount > 0 ? `🚀 체크된 ${checkedCount}개의 팩트로 창작 시작` : '팩트를 체크해주세요'}
               </button>
             </div>
-            
           </div>
         </div>
       </div>
 
-      {/* 하단 영역 (최종 결과물 에디터) */}
       <div className="w-full bg-white flex flex-col">
         <div className="p-4 bg-emerald-50/50 border-b border-gray-200 flex justify-between items-center shrink-0">
           <h3 className="font-bold flex items-center gap-2 text-emerald-800"><FileText className="w-4 h-4"/> 3. 최종 결과물 에디터</h3>
@@ -496,7 +498,6 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
           )}
         </div>
         
-        {/* 하단 액션 버튼 */}
         {creativeContent && !generateMut.isPending && (
           <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 shrink-0">
             <button onClick={handleDownloadTxt} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-100 flex items-center gap-2 transition-colors shadow-sm"><Download className="w-4 h-4"/> 로컬 다운로드</button>
@@ -507,7 +508,6 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
         )}
       </div>
 
-      {/* 불러오기 전용 다중 선택 모달 */}
       {isSourceModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center backdrop-blur-sm">
            <div className="bg-white rounded-2xl shadow-2xl w-[800px] h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -525,7 +525,6 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
-                 {/* 💡 다중 선택 리스트 */}
                  {sourceSearchTab === 'LOG' && (
                    <div className="flex flex-col gap-3">
                      {isLogsLoading ? (
@@ -622,7 +621,6 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                  )}
               </div>
 
-              {/* 하단 고정 영역: 선택 완료 및 취소 버튼 */}
               <div className="p-4 border-t border-gray-200 bg-white flex justify-between items-center shrink-0">
                  <div className="text-sm font-bold text-gray-700 flex items-center gap-2">
                    총 <span className="text-indigo-600 text-lg">{tempSelectedSources.length}</span>개 항목 선택됨

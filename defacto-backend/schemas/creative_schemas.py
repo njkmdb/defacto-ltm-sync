@@ -17,6 +17,7 @@ class SourceItem(BaseModel):
 
 class GenerateCreativeRequest(BaseModel):
     sources: List[SourceItem] = Field(..., description="다중 소스 처리용 배열")
+    base_entity_id: int = Field(..., description="테넌트 무결성 검증을 위한 주체 ID") # 💡 테넌트 ID 필수화
     system_instruction: str
     temperature: float = Field(0.7, description="LLM 생성 온도 (0.0 ~ 1.0)")
     max_length: int = Field(1000, description="최종 결과물 목표 글자수")

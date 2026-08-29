@@ -8,10 +8,13 @@ import { Activity, Database, BrainCircuit, RefreshCw, BarChart2 } from 'lucide-r
 import { DashboardStatisticsResponse } from '@/types/api';
 
 export default function StatisticsDashboardSection() {
+  const baseEntityId = 1024; // 💡 현재 접속된 Tenant ID 하드코딩 주입
+
   const { data, isLoading } = useQuery<DashboardStatisticsResponse>({
-    queryKey: ['dashboardStatistics'],
-    queryFn: getDashboardStatistics,
-    refetchInterval: 10000 // 10초마다 실시간 갱신
+    // 💡 쿼리 키 및 Fetch 함수에 baseEntityId 파라미터 연동
+    queryKey: ['dashboardStatistics', baseEntityId],
+    queryFn: () => getDashboardStatistics(baseEntityId),
+    refetchInterval: 10000 
   });
 
   if (isLoading) {
@@ -25,7 +28,6 @@ export default function StatisticsDashboardSection() {
   const stats = data?.data;
   if (!stats) return null;
 
-  // 차트 X축 라벨을 짧게(MM-DD) 변환
   const pipelineData = stats.daily_pipeline_stats.map(d => ({
     ...d,
     date: d.date.substring(5) 
@@ -38,7 +40,6 @@ export default function StatisticsDashboardSection() {
 
   return (
     <div className="mb-8 flex flex-col gap-6">
-      {/* 💡 상단 KPI 카드 영역 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4 hover:shadow-md transition-shadow">
           <div className="p-4 bg-indigo-50 rounded-xl"><BrainCircuit className="w-8 h-8 text-indigo-600"/></div>
@@ -65,10 +66,7 @@ export default function StatisticsDashboardSection() {
         </div>
       </div>
 
-      {/* 💡 하단 차트 영역 (좌우 2분할) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Chart 1: 파이프라인 에러 및 처리 현황 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
             <BarChart2 className="w-5 h-5 text-indigo-500" /> 일별 파이프라인 처리 현황 (최근 7일)
@@ -88,7 +86,6 @@ export default function StatisticsDashboardSection() {
           </div>
         </div>
 
-        {/* Chart 2: 외부 정형 데이터 수집 추이 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
             <Activity className="w-5 h-5 text-emerald-500" /> 외부 정형 데이터 수집 추이 (EXT Sync)

@@ -62,6 +62,18 @@ class MstPrompt(Base):
     up_ts = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     ne_ts = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+class MstPipeline(Base):
+    __tablename__ = 'mst_pipelines'
+    __table_args__ = {'schema': 'domain'}
+
+    pipeline_id = Column(String(50), primary_key=True)
+    pipeline_name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    config_json = Column(JSONB, nullable=False, default=[])
+    is_active = Column(Boolean, default=True, nullable=False)
+    up_ts = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    ne_ts = Column(DateTime, default=datetime.utcnow, nullable=False)
+
 # =====================================================================
 # 2. RAW 스키마: 비정형 원본 데이터 및 미디어 소스
 # =====================================================================

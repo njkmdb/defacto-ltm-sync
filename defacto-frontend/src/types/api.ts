@@ -8,3 +8,4 @@ export * from './prompt';
 export * from './scheduler';
 export * from './dashboard';
 export * from './creative';
+export * from './pipeline_builder';

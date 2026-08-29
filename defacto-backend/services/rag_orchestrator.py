@@ -54,8 +54,14 @@ class RagOrchestrator:
                 query_embedding, reference_date, base_entity_id, target_entity_id, target_object_id
             )
 
+        # 💡 [치명적 보안 결함 수정] Track 2 (Cross-Target Search)에서도 테넌트 방어막(base_entity_id) 강제 유지
+        # 타사 기밀 메모리의 벡터 검색 노출을 원천적으로 차단합니다.
         track2_results = self._execute_routing_pipeline(
-            query_embedding, reference_date=reference_date, base_entity_id=None, target_entity_id=0, target_object_id=0
+            query_embedding, 
+            reference_date=reference_date, 
+            base_entity_id=base_entity_id, 
+            target_entity_id=0, 
+            target_object_id=0
         )
 
         def get_mem_id(item):

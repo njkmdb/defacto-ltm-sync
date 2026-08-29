@@ -1,6 +1,6 @@
 # Defacto LTM-Sync Context Manager
 
-![Version](https://img.shields.io/badge/version-v0.1.0-4F46E5?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-v0.3.0-4F46E5?style=for-the-badge)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
@@ -10,39 +10,49 @@
 현장에서 발생한 파편화된 [단기 이벤트]를, 과거의 [특정 기억(LTM)]과 결합하여, 가장 건조하고 정확한 [단문 요약본], [심층 리포트], 그리고 [2차 창작물]로 만들어 내는 마스터 엔진입니다.
 
 * **특징:** 영업 일지, 게임 퀘스트, 다이어리 등 도메인에 구애받지 않는 범용 프레임워크를 제공합니다.
-* **인프라 환경:** PostgreSQL (로컬/운영 DB) ➡️ Datastream ➡️ BigQuery (아카이브 적재) 기반의 하이브리드 투트랙 RAG 검색 시스템입니다. 오디오 및 이미지 등 멀티모달 원본 파일은 클라우드 스토리지 대신 **로컬 고성능 NVMe SSD**를 활용하여 네트워크 비용을 원천 차단합니다.
+* **인프라 환경:** PostgreSQL (로컬/운영 DB) ➡️ Datastream ➡️ BigQuery (아카이브 적재) 기반의 하이브리드 투트랙 RAG 검색 시스템입니다. 오디오 및 이미지뿐만 아니라 **PDF/CSV 등 문서 파일까지 포함하는 멀티모달 데이터**를 지원하며, 클라우드 스토리지 대신 **로컬 고성능 NVMe SSD**를 활용하여 네트워크 비용을 원천 차단합니다.
+* **🔒 멀티 테넌트(Multi-Tenant) 보안:** API DTO 단계부터 코어 RAG 엔진(Cross-Entity Vector Search)의 가장 깊은 곳까지 `base_entity_id` 기반의 철저한 데이터 격리(Isolation) 아키텍처가 적용되어, 타사의 기밀 데이터가 검색되거나 LLM 컨텍스트에 혼입되는 것을 100% 원천 차단합니다.
+* **⚙️ 노드 기반 프레임워크 (Headless Engine):** 하드코딩된 비즈니스 로직을 완전히 분리하고, 프론트엔드에서 전달받은 '파이프라인 설계도(Pipeline Config)'를 읽어 순차적으로 작업을 수행하는 오케스트레이터(Orchestrator) 기반으로 동작합니다. 백엔드 재배포 없이 시스템의 동작 흐름을 무한히 생성하고 확장할 수 있습니다.
 
 ---
 ## 1. 프론트엔드 아키텍처 (Next.js App Router 기반)
 
-시스템의 무한한 확장을 위해 상단 네비게이션 바(GNB)를 통한 **6대 다중 페이지 라우팅 구조**를 채택했습니다.
+시스템의 무한한 확장을 위해 상단 네비게이션 바(GNB)를 통한 **8대 다중 페이지 라우팅 구조**를 채택했습니다.
 
 ### 1.1. 프론트엔드 기술 스택
 
 * **Core Framework:** Next.js (React) + TypeScript
 * **Data Fetching & State:** TanStack Query (React Query)
+* **State Management (Client):** Zustand (파이프라인 빌더 캔버스 제어용)
 * **Styling & UI Components:** Tailwind CSS + lucide-react + Recharts (대시보드 통계 시각화)
+* **Drag & Drop:** @dnd-kit/core (노드 블록 드래그 앤 드롭 조립용)
 * **CSV Parsing:** PapaParse (클라이언트 사이드 파싱을 통한 서버 부하 제로화)
 
-### 1.2. GNB 6대 핵심 메뉴 구성
+### 1.2. GNB 8대 핵심 메뉴 구성
 
 1. **[ / ] 파이프라인 관제 (Pipeline Dashboard)**   
-대시보드 통계(비용, 토큰, RAG 캐시 적중률), 비정형 데이터 수동 적재 및 오류 교정 (Process A), 일괄 대량 합성, 외부 데이터(EXT) 동기화 스케줄러를 관제하는 실시간 메인 화면.
+대시보드 통계(비용, 토큰, RAG 캐시 적중률, **핫 키워드 및 위험 감지 알림**), 비정형 데이터 수동 적재 및 오류 교정 (Process A), 일괄 대량 합성, 외부 데이터(EXT) 동기화 스케줄러의 **동적 주기 제어(Pause/Resume)**를 관제하는 실시간 메인 화면.
 
-2. **[ /archive ] 일지 및 리포트 보관소 (Archive)**  
+2. **[ /builder ]  파이프라인 빌더 (Pipeline Builder)**  
+백엔드 로직 수정 없이 UI에서 코어 모듈(Node)을 조립하여 새로운 데이터 처리 파이프라인(JSON Config)을 동적으로 설계하고 프리셋으로 저장하는 비주얼 에디터 캔버스입니다. 드래그 앤 드롭으로 노드 순서를 변경하고, 동적 변수(`{{...}}`)를 속성(Params)에 바인딩할 수 있습니다.
+
+3. **[ /archive ] 일지 및 리포트 보관소 (Archive)**  
 AI가 합성한 단기 일지(`core.event_logs`)와 심층 요약 리포트(`core.event_briefings`)를 검색, 열람, 편집 및 대량 관리(일괄 삭제/주입/추출)하는 전용 보관소.
 
-3. **[ /domain ] 마스터 관리 (Domain Admin)**  
+4. **[ /domain ] 마스터 관리 (Domain Admin)**  
 AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와 상태 코드(`domain.mst_status`)를 관리. '싱글 테이블 & JSONB 가상 테이블 전략'을 사용하여 화면에서 동적 속성(Key-Value)을 자유롭게 추가 가능.
 
-4. **[ /memory ] 기억 탐색기 (Memory Explorer)**  
+5. **[ /memory ] 기억 탐색기 (Memory Explorer)**  
 벡터 저장소(`core.event_memories`)의 불변 데이터를 자연어 및 다중 조건으로 검색해 보고 RAG의 코사인 거리(Cosine Distance)를 테스트. 체리피킹한 팩트들을 기반으로 **AI 요약 리포트(Briefing)** 생성을 트리거하는 디버깅 화면.
 
-5. **[ /prompt ] 프롬프트 랩 (Prompt Lab)**  
+6. **[ /prompt ] 프롬프트 랩 (Prompt Lab)**  
 백엔드 재배포 없이 각 파이프라인 스텝(A_EXTRACTION, B_PLANNING 등)별 시스템 프롬프트, JSON 스키마 매핑, `temperature`, `max_length`를 동적으로 제어.
 
-6. **[ /studio ] 창작 스튜디오 (Creative Studio)**  
+7. **[ /studio ] 창작 스튜디오 (Creative Studio)**  
 기존 일지, 리포트, 창작물을 다중 선택(Source)하여 새로운 톤앤매너로 글을 재구성하는 워크스페이스. 메타 프롬프트(Meta-Prompt) 역설계 및 2차 창작물 보관소 기능을 지원.
+
+8. **[ /system ] 시스템 데이터 탐색기 (DB Browser)**  
+최고 관리자 전용 도구로, 로컬 데이터베이스의 `ext`, `core`, `domain`, `raw` 스키마 내 모든 물리 테이블을 안전하게 열람합니다. SQLAlchemy Reflection을 사용하여 SQL Injection을 차단하고, 대용량 벡터 및 JSONB 데이터 렌더링 시의 브라우저 DOM 폭발(UI Freezing)을 완벽히 방어합니다.
 
 
 ---
@@ -68,6 +78,7 @@ AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와
 물리적인 컬럼 추가 없이, JSONB 컬럼을 활용해 거래처, 직원, 프로젝트 등 무한한 형태의 마스터를 단일 테이블 내에 구현하는 가상 테이블. 파이프라인은 이 테이블들을 절대 갱신하지 않으며 참조만 실시.
 * **`domain.mst_status`**: 투트랙 대역 분리(ID Range)를 통해 영업, 자산 등 비즈니스 커스텀 상태를 동적 생성 가능.
 * **`domain.mst_prompts`**: 타겟 및 파이프라인 스텝별 프롬프트, `schema_name`, `temperature`, `max_length` 값을 보관.
+* **`domain.mst_pipelines`**: 파이프라인 빌더에서 조립한 동적 노드 구성 JSON(`steps` 배열)을 영구 보존하는 마스터 테이블.
 
 ### [EXT 스키마: 외부 정형 데이터] - 파이프라인 참조 전용
 * **`ext_mst` & `ext_events`**: ERP, CRM 등 외부 연동 데이터를 적재하며, 백엔드는 이를 변경하지 않고 검색 증강용 외부 데이터 문맥으로만 읽어 들임.
@@ -109,10 +120,10 @@ AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와
 * 당일 팩트에 기록된 타겟 ID들을 바탕으로 `domain` 스키마를 참조(Read)하여 실명(Name)을 확보합니다.
 * 임베딩 검색 쿼리에 `[핵심 타겟 엔티티: XXX]` 형태로 주입하여 벡터 검색 가중치를 극대화합니다.
 
-#### 3. **★ 투트랙(Dual-Track) RAG 기반 LTM 확보:**
+#### 3. ** 투트랙(Dual-Track) RAG 기반 LTM 확보:**
 * 단순 유사도 검사의 한계를 넘기 위해 아래 두 가지 트랙을 동시 수행합니다.
-* **[Track 1: 관계 중심 검색]** 특정 대상에 대한 과거 기억만을 필터링(`WHERE target_entity_id = ?`)하여 연속성 있는 맥락을 가져옵니다.
-* **[Track 2: 전역 맥락 중심 검색 (크로스 엔티티 인사이트)]** 엔티티 필터링을 완전히 해제하고 전체 DB에서 당일 팩트와 벡터 유사도가 가장 높은 전사적 기억을 가져옵니다.
+* **[Track 1: 관계 중심 검색]** 특정 대상에 대한 과거 기억만을 필터링(`WHERE target_entity_id = ? AND base_entity_id = ?`)하여 연속성 있는 맥락을 가져옵니다.
+* **[Track 2: 전역 맥락 중심 검색 (크로스 엔티티 인사이트)]** 타겟 엔티티 필터링을 해제하여 타겟 간 유사 사례를 검색하되, **반드시 자사 테넌트(`WHERE base_entity_id = ?`) 내부의 기억만 검색**하도록 격리합니다.
 * 시간 감쇠(Time Decay) 로직을 적용하여, 순수 코사인 거리를 측정한 뒤 경과 일수에 따른 패널티를 가산하여 최종 `adjusted_distance`로 재정렬합니다. 검색은 로컬 캐시(Tier 1) 및 로컬 pgvector(Tier 2)를 최우선으로 타며, 필요 시 BigQuery(Tier 3)로 폴백하는 3-Tier 라우팅을 수행합니다.
 
 #### 4. **에이전트 플래닝 및 최종 일지 작성 (`core.event_logs`):**
@@ -128,9 +139,41 @@ AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와
 #### 2. **창작 스튜디오 (Creations):**
 * 다중 소스를 병합하여 원하는 톤앤매너로 2차 창작물을 생산합니다. 원본의 무결성을 해치지 않는지 `fact_preservation_check` 플래그로 팩트 왜곡(Hallucination)을 검증합니다.
 
+### ★ 노드 기반 동적 파이프라인 (The Executor)
+
+API 파이프라인 로직을 'Node(모듈)' 단위로 격리후, **`PipelineOrchestrator`**가 이들을 지휘.
+
+1. **페이로드 패러다임 전환 (Data -> Pipeline):**
+   * 클라이언트는 `{"query": "...", "data": "..."}` 형태의 고정된 페이로드가 아니라, **"어떤 노드를, 어떤 순서로, 어떤 파라미터를 주입하여 실행할 것인지"**에 대한 배열(`steps`) 전체를 전송합니다. (`schemas.pipeline_schemas.PipelineExecutionRequest`)
+2. **동적 템플릿 엔진 (Interpolation):**
+   * 이전 단계(Node A)의 실행 결과물(`output_key`)은 다음 단계(Node B)의 파라미터 내 `{{node_a_result}}` 템플릿 변수에 의해 인메모리 상태(`PipelineContext`)를 통해 런타임에 동적으로 치환됩니다.
+3. **단일 트랜잭션 롤백 무결성 보장:**
+   * 오케스트레이터의 실행 루프는 `with self.db.begin_nested():`로 감싸져 있어, 파이프라인 도중 에러가 발생하면 이전 노드에서 수행한 모든 DB 조작(INSERT 등)이 안전하게 롤백(Rollback)되어 고아 데이터를 방지합니다.
+
+### 사용 가능한 핵심 코어 모듈 (Nodes Registry)
+* **`LTM_Search`:** RAG 오케스트레이터를 호출하여 LTM/Cache 컨텍스트를 벡터 검색.
+* **`Fetch_Ext_Data`:** 외부 정형 데이터(EXT 스키마) 인출.
+* **`Pre_Fact_Check`:** LLM 환각 방지를 위한 LTM vs EXT 데이터 교차 검증 및 모순 발생 시 트랜잭션 중단.
+* **`LLM_Generate`:** 동적 주입된 Prompt와 Schema를 기반으로 LRSE 미들웨어와 통신하여 데이터를 구조화.
+* **`Persist_DB`:** 산출된 최종 데이터를 시스템 테이블에 안전하게 Upsert.
 
 ---
 ## 4. 업데이트 내역 (Changelog)
+* **2026.08.29 (v0.3.0)**
+  - **노드 기반 프레임워크 (Headless Engine) 전면 도입.**
+  - 프론트엔드 비주얼 파이프라인 빌더 기능 추가 (`/builder`).
+  - 파이프라인 설계도(JSON Config) 보존을 위한 `mst_pipelines` 테이블 추가.
+  - `PipelineOrchestrator` 및 상태 보존 `PipelineContext` 구현.
+  - API 페이로드에 위상 정렬 기반의 `steps` 배열 스키마(`PipelineExecutionRequest`) 전면 적용.
+* **2026.08.27 (v0.2.1)**
+  - 최고 관리자 전용 시스템 데이터 탐색기 (DB 브라우저) 기능 및 UI 추가 (`/system`)
+  - SQLAlchemy MetaData Reflection 도입으로 동적 쿼리 안티 패턴 제거 및 SQL Injection 원천 차단
+  - 대용량 Vector(3072차원) 및 JSONB 객체 렌더링 시 DOM Bloat 및 UI Freezing 방어 로직 적용
+* **2026.08.25 (v0.2.0)**
+  - 엔터프라이즈 멀티 테넌트(Multi-Tenant) 데이터 보안 아키텍처 전면 적용.
+  - 전역 API DTO의 `base_entity_id` 필수값 강제 및 프론트엔드 연동 완료.
+  - RAG Orchestrator의 Cross-Entity Search(Track 2) 시 테넌트 격리 로직 적용.
+  - 삭제 시 계단식 고아 객체 연결 해제(Cascade Soft Disconnect) 로직 완비.
 * **2026.08.23 (v0.1.0)**  
   - 초기 릴리즈
 
@@ -149,6 +192,7 @@ AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와
 │
 ├── 2. API Gateway & Core Engine (FastAPI Routers)
 │   │
+│   ├── [pipeline_builder_router.py] (동적 파이프라인 오케스트레이션 게이트웨이)
 │   ├── [pipeline_router.py] (Process A/B 엔진 제어)
 │   ├── [raw_router.py] (비정형 데이터 수동 적재 및 교정 제어)
 │   ├── [memory_router.py] (기억 탐색 및 심층 리포트 제어)
@@ -158,6 +202,7 @@ AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와
 │   ├── [prompt_router.py] (프롬프트 및 JSON 스키마 동적 매핑 제어)
 │   ├── [scheduler_router.py] (마이크로 배치 및 대량 합성 트리거)
 │   ├── [dashboard_router.py] (통계 및 시스템 인사이트 관제)
+│   ├── [system_router.py] (시스템 데이터 탐색 및 DB 브라우저 제어)
 │   └── [media_router.py] (멀티모달 STT/OCR 비동기 백그라운드 처리)
 │
 ├── 3. LLM RPC Middleware (LRSE Engine)
@@ -166,10 +211,11 @@ AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와
 │   └── Validation 실패 시 Auto Retry Loop 동작
 │
 ├── 4. Primary Database (PostgreSQL & pgvector)
-│   ├── [Domain] mst_entities, mst_objects, mst_status, mst_prompts (마스터)
+│   ├── [Domain] mst_entities, mst_objects, mst_status, mst_prompts, mst_pipelines (마스터)
 │   ├── [Ext/Raw] ext_mst, ext_events, event_raw_source, event_raw
 │   └── [Core] event_facts, event_memories, event_logs, event_briefings, event_creations, history_ext_sync, batch_jobs
 │
 └── 5. Data Pipeline & Warehouse
     ├── Datastream (PostgreSQL의 WAL 기반 CDC 실시간 캡처)
     └── BigQuery (데이터 마트, 아카이브, Cold-Tier RAG 수행)
+```

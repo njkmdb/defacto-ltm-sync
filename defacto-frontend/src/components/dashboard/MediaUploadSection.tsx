@@ -9,6 +9,7 @@ import { getPipelineStatus } from '@/lib/api/pipeline';
 export default function MediaUploadSection() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const baseEntityId = 1024; // 💡 현재 접속된 Tenant ID 하드코딩 주입
 
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -16,8 +17,9 @@ export default function MediaUploadSection() {
   const [uploadWaitState, setUploadWaitState] = useState({ isWaiting: false, targetCount: 0 });
 
   const { data: trackerStatus } = useQuery({
-    queryKey: ['pipelineStatusTracker'],
-    queryFn: () => getPipelineStatus({ page: 1, limit: 1 }),
+    // 💡 쿼리 키 및 Fetch 함수에 baseEntityId 파라미터 연동
+    queryKey: ['pipelineStatusTracker', baseEntityId],
+    queryFn: () => getPipelineStatus({ baseEntityId, page: 1, limit: 1 }),
     refetchInterval: uploadWaitState.isWaiting ? 2000 : false, 
   });
 
@@ -46,7 +48,6 @@ export default function MediaUploadSection() {
   const handleUpload = async (files: FileList | File[]) => {
     const validFiles: File[] = [];
     
-    // 💡 [핵심 교정] 프론트엔드 단 파일 용량 Validation
     for (const f of Array.from(files)) {
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
       
@@ -77,7 +78,7 @@ export default function MediaUploadSection() {
     try {
       for (let i = 0; i < totalFiles; i++) {
         setStatusPopup({ show: true, type: 'uploading', message: `서버로 파일을 전송 중입니다... (${i + 1}/${totalFiles})` });
-        await uploadMediaFile(validFiles[i], 1024); 
+        await uploadMediaFile(validFiles[i], baseEntityId); // 💡 baseEntityId 주입
       }
       setStatusPopup({ show: true, type: 'processing', message: `총 ${totalFiles}개의 파일을 AI 엔진이 분석 중입니다... 잠시만 기다려주세요.` });
       setUploadWaitState({ isWaiting: true, targetCount });

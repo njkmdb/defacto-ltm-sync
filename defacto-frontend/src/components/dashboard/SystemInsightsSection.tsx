@@ -8,10 +8,12 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function SystemInsightsSection() {
   const [activeTab, setActiveTab] = useState<'COST' | 'KEYWORDS' | 'RAG' | 'RISKS'>('COST');
+  const baseEntityId = 1024; // 💡 현재 접속된 Tenant ID 하드코딩 주입
 
   const { data, isLoading } = useQuery({
-    queryKey: ['systemInsights'],
-    queryFn: getSystemInsights,
+    // 💡 쿼리 키 및 Fetch 함수에 baseEntityId 파라미터 연동
+    queryKey: ['systemInsights', baseEntityId],
+    queryFn: () => getSystemInsights(baseEntityId),
     refetchInterval: 15000,
   });
 
@@ -26,7 +28,6 @@ export default function SystemInsightsSection() {
   const insights = data?.data;
   if (!insights) return null;
 
-  // Donut Chart Colors
   const COLORS = ['#10b981', '#6366f1', '#f59e0b'];
   const ragData = [
     { name: 'Tier 1 (Cache)', value: insights.rag_stat.cache },
@@ -49,7 +50,6 @@ export default function SystemInsightsSection() {
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
-        {/* COST TAB */}
         {activeTab === 'COST' && (
           <div className="flex flex-col h-full justify-center px-4 animate-in fade-in zoom-in duration-300">
             <div className="flex items-center justify-between mb-2">
@@ -66,7 +66,6 @@ export default function SystemInsightsSection() {
           </div>
         )}
 
-        {/* KEYWORDS TAB */}
         {activeTab === 'KEYWORDS' && (
           <div className="flex flex-wrap gap-2 animate-in fade-in zoom-in duration-300 content-start">
             {insights.hot_keywords.length === 0 && <p className="text-sm text-gray-400 font-bold m-auto mt-10">추출된 키워드가 없습니다.</p>}
@@ -78,7 +77,6 @@ export default function SystemInsightsSection() {
           </div>
         )}
 
-        {/* RAG TAB */}
         {activeTab === 'RAG' && (
           <div className="flex items-center h-full animate-in fade-in zoom-in duration-300">
             <div className="w-1/2 h-full">
@@ -99,7 +97,6 @@ export default function SystemInsightsSection() {
           </div>
         )}
 
-        {/* RISKS TAB */}
         {activeTab === 'RISKS' && (
           <div className="flex flex-col gap-3 animate-in fade-in zoom-in duration-300">
             {insights.risk_alerts.length === 0 && <p className="text-sm text-gray-400 font-bold m-auto mt-10">최근 감지된 위험 요소가 없습니다.</p>}

@@ -18,7 +18,6 @@ export const saveEventBriefing = async (data: any) => {
   return response.data;
 };
 
-// 💡 수정됨: start_date, end_date, search_conditions 매핑 추가
 export const getEventBriefings = async (page: number = 1, limit: number = 20, baseEntityId?: number, startDate?: string, endDate?: string, searchConditions?: any[]) => {
   const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
   if (baseEntityId) params.append('base_entity_id', baseEntityId.toString());
@@ -36,28 +35,27 @@ export const getEventBriefings = async (page: number = 1, limit: number = 20, ba
   return response.data;
 };
 
-export const getBriefingAuditTrail = async (briefingId: number) => {
-  const response = await apiClient.get(`/api/v1/core/briefings/${briefingId}/audit-trail`);
+export const getBriefingAuditTrail = async (briefingId: number, baseEntityId: number) => {
+  const response = await apiClient.get(`/api/v1/core/briefings/${briefingId}/audit-trail?base_entity_id=${baseEntityId}`);
   return response.data;
 };
 
-export const getEventBriefing = async (briefingId: number) => {
-  const response = await apiClient.get(`/api/v1/core/briefings/${briefingId}`);
+export const getEventBriefing = async (briefingId: number, baseEntityId: number) => {
+  const response = await apiClient.get(`/api/v1/core/briefings/${briefingId}?base_entity_id=${baseEntityId}`);
   return response.data;
 };
 
-// 💡 추가됨: 리포트 수정 및 삭제 지원 API
 export const updateEventBriefing = async (briefingId: number, data: any) => {
   const response = await apiClient.patch(`/api/v1/core/briefings/${briefingId}`, data);
   return response.data;
 };
 
-export const deleteEventBriefing = async (briefingId: number) => {
-  const response = await apiClient.delete(`/api/v1/core/briefings/${briefingId}`);
+export const deleteEventBriefing = async (briefingId: number, baseEntityId: number) => {
+  const response = await apiClient.delete(`/api/v1/core/briefings/${briefingId}?base_entity_id=${baseEntityId}`);
   return response.data;
 };
 
-export const deleteBulkEventBriefings = async (briefingIds: number[]) => {
-  const response = await apiClient.post('/api/v1/core/briefings/bulk-delete', { briefing_ids: briefingIds });
+export const deleteBulkEventBriefings = async (briefingIds: number[], baseEntityId: number) => {
+  const response = await apiClient.post('/api/v1/core/briefings/bulk-delete', { briefing_ids: briefingIds, base_entity_id: baseEntityId });
   return response.data;
 };

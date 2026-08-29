@@ -8,7 +8,8 @@ class MemorySearchRequest(BaseModel):
     page: int = 1
     limit: int = 20
     distance_threshold: float = Field(1.0, description="코사인 거리 임계값")
-    base_entity_id: Optional[int] = Field(None, description="특정 주체 필터링")
+    # 💡 [CRITICAL FIX] Optional 제거 및 필수값(Required)으로 강제 변경
+    base_entity_id: int = Field(..., description="테넌트 보안 검증용 주체 ID")
     search_conditions: Optional[str] = Field(None, description="다중 조건 필터 (JSON 문자열)")
     include_dwh: bool = Field(False, description="클라우드 DWH(BigQuery) 포함 검색 여부")
 
@@ -76,8 +77,8 @@ class BriefingAuditTrailResponse(BaseModel):
     status: str
     data: List[AuditMemoryItem]
 
-# 💡 추가됨: 리포트 수정 및 삭제 지원 스키마
 class UpdateBriefingRequest(BaseModel):
+    base_entity_id: int = Field(..., description="테넌트 보안 검증용 주체 ID")
     query_text: str
     executive_summary: str
     key_findings: List[str]
@@ -85,4 +86,5 @@ class UpdateBriefingRequest(BaseModel):
     recommended_actions: List[str]
 
 class BulkDeleteBriefingRequest(BaseModel):
+    base_entity_id: int = Field(..., description="테넌트 보안 검증용 주체 ID")
     briefing_ids: List[int]

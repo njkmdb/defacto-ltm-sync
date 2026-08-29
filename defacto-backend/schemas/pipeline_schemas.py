@@ -1,8 +1,36 @@
 from datetime import date
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 from .common_schemas import ActionItem, PaginationMeta
 
+# --- [Feature 1] Impact Analysis Schemas ---
+class ImpactedItem(BaseModel):
+    item_type: Literal["BRIEFING", "CREATION"]
+    item_id: int
+    title_or_summary: str
+
+class ImpactAnalysisResponse(BaseModel):
+    status: str
+    affected_count: int
+    affected_items: List[ImpactedItem]
+
+# --- [Feature 2] Pre-generation Cross-Validation Schemas ---
+class DiscrepancyItem(BaseModel):
+    source_raw_id: int = Field(..., description="오류를 내포한 원시 데이터의 PK ID")
+    issue_topic: str = Field(..., description="충돌 주제 (예: 계약 금액, 납기일)")
+    ai_memory_value: str = Field(..., description="AI 비정형 기억(LTM)에 기록된 잘못된 값")
+    ext_truth_value: str = Field(..., description="ERP/CRM(EXT)에 기록된 절대 진리 값")
+    recommended_correction: str = Field(..., description="시스템 자동 교정에 쓰일 제안 텍스트")
+
+class FactCheckSchema(BaseModel):
+    has_conflict: bool = Field(..., description="단 하나의 모순이라도 존재하면 True")
+    discrepancies: List[DiscrepancyItem] = Field(default_factory=list)
+
+class FactCheckRequest(BaseModel):
+    base_entity_id: int
+    reference_date: str
+
+# --- 기존 Schemas ---
 class StructureEventsRequest(BaseModel):
     base_entity_id: int
     target_raw_ids: List[int]
@@ -78,3 +106,17 @@ class SaveSummaryRequest(BaseModel):
     edited_summary: str
     action_items: List[ActionItem] = []
     schema_name: str = "LTM_Synthesis"
+
+# --- [Sprint 1] Node Orchestration Schemas ---
+class PipelineStep(BaseModel):
+    step_id: str = Field(..., description="노드 고유 식별자 (예: node_ltm_search_01)")
+    step_order: int = Field(..., description="실행 순서 (위상 정렬의 기준)")
+    module_name: str = Field(..., description="실행할 코어 모듈명 (예: LTM_Search, Pre_Fact_Check)")
+    params: Dict[str, Any] = Field(default_factory=dict, description="해당 모듈에 주입될 동적 속성 (프론트엔드 Property Editor와 매핑)")
+    output_key: str = Field(..., description="이 노드의 결과물을 전역 상태(Context)에 저장할 Key 이름")
+
+class PipelineExecutionRequest(BaseModel):
+    pipeline_id: Optional[str] = Field(None, description="저장된 프리셋 설계도 ID (DB 인출용)")
+    base_entity_id: int = Field(..., description="[보안 필수] 테넌트 데이터 격리를 위한 마스터 주체 ID")
+    initial_context: Dict[str, Any] = Field(default_factory=dict, description="최초 주입 데이터 (raw_text, reference_date 등)")
+    steps: List[PipelineStep] = Field(default_factory=list, description="실행할 노드 명세 배열")

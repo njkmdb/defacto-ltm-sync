@@ -5,7 +5,7 @@ export interface MemorySearchRequest {
   page?: number;
   limit?: number;
   distance_threshold?: number;
-  base_entity_id?: number | null;
+  base_entity_id: number; // 💡 null 허용(Optional) 제거 및 필수값 변경
   search_conditions?: string | null;
   include_dwh?: boolean;
 }

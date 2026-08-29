@@ -28,13 +28,13 @@ export const getEventLogs = async (page: number = 1, limit: number = 20, startDa
   return response.data;
 };
 
-export const deleteEventLog = async (logId: number) => {
-  const response = await apiClient.delete(`/api/v1/core/event-logs/${logId}`);
+export const deleteEventLog = async (logId: number, baseEntityId: number) => {
+  const response = await apiClient.delete(`/api/v1/core/event-logs/${logId}?base_entity_id=${baseEntityId}`);
   return response.data;
 };
 
-export const deleteBulkEventLogs = async (logIds: number[]) => {
-  const response = await apiClient.post('/api/v1/core/event-logs/bulk-delete', { log_ids: logIds });
+export const deleteBulkEventLogs = async (logIds: number[], baseEntityId: number) => {
+  const response = await apiClient.post('/api/v1/core/event-logs/bulk-delete', { log_ids: logIds, base_entity_id: baseEntityId });
   return response.data;
 };
 
@@ -43,7 +43,7 @@ export const bulkUpsertEventLogs = async (data: any[]) => {
   return response.data;
 };
 
-export const getEventLog = async (logId: number) => {
-  const response = await apiClient.get(`/api/v1/core/event-logs/${logId}`);
+export const getEventLog = async (logId: number, baseEntityId: number) => {
+  const response = await apiClient.get(`/api/v1/core/event-logs/${logId}?base_entity_id=${baseEntityId}`);
   return response.data;
 };

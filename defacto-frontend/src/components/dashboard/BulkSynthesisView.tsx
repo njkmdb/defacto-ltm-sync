@@ -3,19 +3,28 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Calendar, RefreshCw, Layers, CheckCircle, XCircle } from 'lucide-react';
-import { triggerBulkSynthesize, getBatchJobStatus } from '@/lib/api/pipeline';
+import { triggerBulkSynthesize, getBatchJobStatus, getPipelinePresets } from '@/lib/api/pipeline';
 import { BatchJobStatusResponse } from '@/types/api';
 
 export default function BulkSynthesisView() {
   const [bulkDate, setBulkDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string>('default_synthesis_v1');
   const [bulkJobId, setBulkJobId] = useState<string | null>(null);
 
+  const { data: presets } = useQuery({
+    queryKey: ['pipelinePresets'],
+    queryFn: () => getPipelinePresets(1, 50, true)
+  });
+
   const bulkMut = useMutation({
-    mutationFn: async () => await triggerBulkSynthesize(bulkDate),
+    mutationFn: async () => {
+      if (!selectedPipelineId) throw new Error("파이프라인 프리셋을 선택해주세요.");
+      return await triggerBulkSynthesize(bulkDate, selectedPipelineId);
+    },
     onSuccess: (data) => {
       setBulkJobId(data.job_id);
     },
-    onError: (err: any) => alert(err.response?.data?.detail || "일괄 합성에 실패했습니다.")
+    onError: (err: any) => alert(err.response?.data?.detail || err.message || "일괄 합성에 실패했습니다.")
   });
 
   const { data: jobStatus } = useQuery<BatchJobStatusResponse>({
@@ -35,18 +44,29 @@ export default function BulkSynthesisView() {
   return (
     <div className="flex-1 flex flex-col h-full">
       <p className="text-sm text-gray-600 mb-6 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 leading-relaxed shrink-0">
-         특정 일자에 접수된 모든 비정형 데이터를 조회하여, 각 주체(Entity)별로 일지를 일괄 백그라운드 합성합니다. TPM(토큰 제한) 방어를 위해 최대 3개의 워커가 병렬로 안전하게 분산 처리합니다.
+         특정 일자에 접수된 모든 비정형 데이터를 조회하여, 각 주체(Entity)별로 백그라운드에서 동적 파이프라인을 일괄 가동합니다. TPM(토큰 제한) 방어를 위해 최대 3개의 워커가 병렬로 분산 처리합니다.
       </p>
 
-      <div className="flex gap-4 mb-6 shrink-0">
+      <div className="flex gap-4 mb-4 shrink-0">
         <div className="flex-1">
            <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Calendar className="w-4 h-4" /> Target Date (대상 일자)</label>
            <input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold text-gray-700" />
         </div>
       </div>
 
-      <button onClick={() => bulkMut.mutate()} disabled={bulkMut.isPending || isJobActive} className="w-full mb-8 flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white font-bold py-3 px-4 rounded-xl transition-colors disabled:opacity-50 shadow-md shrink-0">
-         {bulkMut.isPending || isJobActive ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />} 해당 일자 전체 주체 일괄 합성 시작
+      <div className="mb-6 shrink-0">
+        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Layers className="w-4 h-4" /> Pipeline Preset</label>
+        <select value={selectedPipelineId} onChange={e => setSelectedPipelineId(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white shadow-sm font-bold text-gray-800">
+          <option value="">(필수) 일괄 가동할 파이프라인을 선택하세요...</option>
+          <option value="default_synthesis_v1">시스템 기본 파이프라인</option>
+          {presets?.data?.filter((p: any) => p.pipeline_id !== 'default_synthesis_v1').map((p: any) => (
+            <option key={p.pipeline_id} value={p.pipeline_id}>{p.pipeline_name}</option>
+          ))}
+        </select>
+      </div>
+
+      <button onClick={() => bulkMut.mutate()} disabled={bulkMut.isPending || isJobActive || !selectedPipelineId} className={`w-full mb-8 flex items-center justify-center gap-2 text-white font-bold py-3 px-4 rounded-xl transition-colors disabled:opacity-50 shadow-md shrink-0 ${selectedPipelineId ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-900 hover:bg-black'}`}>
+         {bulkMut.isPending || isJobActive ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />} 동적 파이프라인 일괄 백그라운드 가동
       </button>
 
       {bulkJobId && (

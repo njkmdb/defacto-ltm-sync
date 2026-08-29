@@ -7,6 +7,7 @@ export interface SourceItem {
 
 export interface GenerateCreativeRequest {
   sources: SourceItem[]; 
+  base_entity_id: number; // 💡 백엔드 스키마와 동기화
   system_instruction: string;
   temperature: number; 
   max_length: number; 

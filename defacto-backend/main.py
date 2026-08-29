@@ -10,7 +10,9 @@ from routers.scheduler_router import router as scheduler_router
 from routers.raw_router import router as raw_router
 from routers.memory_router import router as memory_router
 from routers.dashboard_router import router as dashboard_router
-from routers.creative_router import router as creative_router  # 💡 신규 라우터 임포트
+from routers.creative_router import router as creative_router  
+from routers.system_router import router as system_router
+from routers.pipeline_builder_router import router as pipeline_builder_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,4 +48,6 @@ app.include_router(scheduler_router)
 app.include_router(raw_router)
 app.include_router(memory_router)
 app.include_router(dashboard_router)
-app.include_router(creative_router)  # 💡 신규 라우터 등록
+app.include_router(creative_router)  
+app.include_router(system_router)
+app.include_router(pipeline_builder_router)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Any, Dict
 from .common_schemas import PaginationMeta
@@ -114,9 +114,11 @@ class BulkUpsertMstObjectRequest(BaseModel):
 class BulkUpsertMstStatusRequest(BaseModel):
     items: List[CreateMstStatusRequest]
 
+# 💡 [NEW] B_FACT_CHECK 파이프라인 단계 및 FactCheckSchema 매핑 추가
 VALID_STEP_SCHEMA_MAP = {
     "A_EXTRACTION": "HierarchicalFactSchema",
     "B_PLANNING": "AgentPlanningSchema",
+    "B_FACT_CHECK": "FactCheckSchema",
     "B_SYNTHESIS": "ContextSynthesisSchema",
     "C_PLANNING": "AgentPlanningSchema",
     "C_BRIEFING": "EventBriefingSchema",
@@ -131,7 +133,7 @@ class PromptItem(BaseModel):
     schema_name: str
     system_prompt: str
     temperature: float
-    max_length: int # 💡
+    max_length: int
     is_active: bool
     up_ts: datetime
     ne_ts: datetime
@@ -144,11 +146,11 @@ class PromptListResponse(BaseModel):
 class CreatePromptRequest(BaseModel):
     target_type: str = Field(..., description="GLOBAL, ENTITY_TYPE, ENTITY_ID, TONE_PRESET")
     target_value: str = Field(..., description="ALL, COMPANY, 1024 등 (TONE_PRESET인 경우 식별자명)")
-    pipeline_step: str = Field(..., description="A_EXTRACTION, B_PLANNING, B_SYNTHESIS, C_PLANNING, C_BRIEFING, C_CREATIVE")
+    pipeline_step: str = Field(..., description="A_EXTRACTION, B_PLANNING, B_FACT_CHECK, B_SYNTHESIS, C_PLANNING, C_BRIEFING, C_CREATIVE")
     schema_name: str = Field(..., description="매핑할 스키마 클래스명")
     system_prompt: str = Field(..., description="LLM 시스템 프롬프트")
     temperature: float = Field(0.7, description="LLM 생성 온도")
-    max_length: int = Field(1000, description="목표 글자수 제한") # 💡
+    max_length: int = Field(1000, description="목표 글자수 제한")
     is_active: bool = True
 
     @model_validator(mode='after')
@@ -165,7 +167,7 @@ class UpdatePromptRequest(BaseModel):
     schema_name: str
     system_prompt: str
     temperature: float
-    max_length: int # 💡
+    max_length: int
     is_active: bool
 
     @model_validator(mode='after')

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
-import { uploadMediaFile } from '@/lib/api';
+import { uploadMediaFile } from '@/lib/api/media'; // 💡 경로 명시적 수정
 import { UploadCloud, FileAudio, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 

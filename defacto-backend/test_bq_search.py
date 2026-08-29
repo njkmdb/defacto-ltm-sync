@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+from datetime import date
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -41,9 +42,11 @@ async def run_test():
         
         # 4. 라우팅 로직 실행 (Tier 2를 거쳐 Tier 3 BigQuery로 넘어가는지 확인)
         print("\n🌐 최적의 컨텍스트 검색 시작 (로컬 LTM -> BigQuery 심층 검색)...")
+        # 💡 [보안 결함 수정 연동] 필수 파라미터 동기화
         results = rag_service.get_optimal_context(
-            entity_id=test_entity_id, 
-            query_embedding=query_vector
+            base_entity_id=test_entity_id, 
+            query_embedding=query_vector,
+            reference_date=date.today()
         )
         
         # 5. 결과 출력
