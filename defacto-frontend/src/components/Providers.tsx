@@ -1,17 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useLocale } from 'next-intl';
+import { setTargetLanguage } from '@/lib/api/client';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  // 💡 컴포넌트가 재렌더링되더라도 QueryClient가 초기화되지 않도록 useState로 상태 유지
+  const locale = useLocale();
+
+  // 💡 URL의 다국어 파라미터가 변경될 때마다 Axios 전역 헤더에 언어 설정을 주입합니다.
+  useEffect(() => {
+    setTargetLanguage(locale);
+  }, [locale]);
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000, // 1분간 캐시 유지
-            refetchOnWindowFocus: false, // 탭 전환 시 불필요한 자동 새로고침 방지
+            staleTime: 60 * 1000, 
+            refetchOnWindowFocus: false, 
           },
         },
       })

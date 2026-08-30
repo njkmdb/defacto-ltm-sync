@@ -7,19 +7,72 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Google BigQuery](https://img.shields.io/badge/Google_BigQuery-669DF6?style=for-the-badge&logo=googlecloud&logoColor=white)
 
-현장에서 발생한 파편화된 [단기 이벤트]를, 과거의 [특정 기억(LTM)]과 결합하여, 가장 건조하고 정확한 [단문 요약본], [심층 리포트], 그리고 [2차 창작물]로 만들어 내는 마스터 엔진입니다.
+현장에서 발생한 파편화된 [단기 이벤트]를, 과거의 [특정 기억(LTM)]과 결합하여, 가장 건조하고 정확한 [단문 요약본], [심층 리포트], 그리고 [2차 창작물]로 만들어 내는 컨텍스트 매니저입니다.
 
 * **특징:** 영업 일지, 게임 퀘스트, 다이어리 등 도메인에 구애받지 않는 범용 프레임워크를 제공합니다.
-* **인프라 환경:** PostgreSQL (로컬/운영 DB) ➡️ Datastream ➡️ BigQuery (아카이브 적재) 기반의 하이브리드 투트랙 RAG 검색 시스템입니다. 오디오 및 이미지뿐만 아니라 **PDF/CSV 등 문서 파일까지 포함하는 멀티모달 데이터**를 지원하며, 클라우드 스토리지 대신 **로컬 고성능 NVMe SSD**를 활용하여 네트워크 비용을 원천 차단합니다.
-* **🔒 멀티 테넌트(Multi-Tenant) 보안:** API DTO 단계부터 코어 RAG 엔진(Cross-Entity Vector Search)의 가장 깊은 곳까지 `base_entity_id` 기반의 철저한 데이터 격리(Isolation) 아키텍처가 적용되어, 타사의 기밀 데이터가 검색되거나 LLM 컨텍스트에 혼입되는 것을 100% 원천 차단합니다.
-* **⚙️ 노드 기반 프레임워크 (Headless Engine):** 하드코딩된 비즈니스 로직을 완전히 분리하고, 프론트엔드에서 전달받은 '파이프라인 설계도(Pipeline Config)'를 읽어 순차적으로 작업을 수행하는 오케스트레이터(Orchestrator) 기반으로 동작합니다. 백엔드 재배포 없이 시스템의 동작 흐름을 무한히 생성하고 확장할 수 있습니다.
+* **인프라 환경:** PostgreSQL (로컬/운영 DB) ➡️ Datastream ➡️ BigQuery (아카이브 적재) 기반의 하이브리드 투트랙 RAG 검색 시스템입니다. 오디오 및 이미지뿐만 아니라 PDF/CSV 등 문서 파일까지 포함하는 멀티모달 데이터를 지원하며, 클라우드 스토리지 대신 로컬 스토리지를 활용하여 네트워크 비용을 원천 차단합니다.
+* **멀티 테넌트(Multi-Tenant) 보안:** API DTO 단계부터 코어 RAG 엔진(Cross-Entity Vector Search)의 가장 깊은 곳까지 `base_entity_id` 기반의 철저한 데이터 격리(Isolation) 아키텍처가 적용되어, 타사의 기밀 데이터가 검색되거나 LLM 컨텍스트에 혼입되는 것을 100% 원천 차단합니다.
+* **노드 기반 프레임워크 (Headless Engine):** 하드코딩된 비즈니스 로직을 완전히 분리하고, 프론트엔드에서 전달받은 '파이프라인 설계도(Pipeline Config)'를 읽어 순차적으로 작업을 수행하는 오케스트레이터(Orchestrator) 기반으로 동작합니다. 백엔드 재배포 없이 시스템의 동작 흐름을 무한히 생성하고 확장할 수 있습니다.
 
 ---
-## 1. 프론트엔드 아키텍처 (Next.js App Router 기반)
+
+## 1. Getting Started (로컬 실행 가이드)
+
+본 프로젝트는 Docker를 통해 모든 환경(DB, Backend, Frontend)이 컨테이너화되어 있어, 복잡한 환경 설정 없이 단 한 줄의 명령어로 기동할 수 있습니다.
+
+### 1.1. 사전 준비 (Prerequisites)
+시스템을 기동하려면 로컬 PC에 **Docker**와 **Python**(LRSE 미들웨어용)이 설치되어 있어야 합니다.
+* **[Docker Desktop 다운로드](https://www.docker.com/products/docker-desktop/)** (Windows / Mac 공통)
+  > 설치 후 Docker Desktop 애플리케이션을 실행해 둔 상태여야 합니다.
+* **Python 3.10+**
+
+### 1.2. LRSE 미들웨어 기동 (필수 💡)
+이 시스템은 LLM 환각 제어를 위해 분리된 `LRSE` 미들웨어 서버(8081 포트)와 통신합니다. 백엔드를 띄우기 전 미들웨어를 먼저 실행해 주세요.
+1. LRSE 저장소 클론: `git clone [LRSE_깃허브_주소]`
+2. 패키지 설치: `pip install -r requirements.txt`
+3. 서버 실행 (반드시 0.0.0.0으로 개방): 
+   `uvicorn core_engine.api.main:app --host 0.0.0.0 --port 8081`
+
+### 1.3. Defacto LTM-Sync 환경 변수 세팅
+1. 본 저장소를 클론하고 폴더로 이동합니다.
+   `git clone [현재_Defacto_깃허브_주소]`
+2. 최상단 디렉토리에 있는 `.env.example` 파일의 이름을 **`.env`**로 변경합니다.
+3. `.env` 파일을 열고 본인의 **Gemini API Key**를 발급받아 입력합니다.
+
+### 1.4. 도커 컨테이너 일괄 기동
+터미널에 아래 명령어를 입력하여 시스템을 기동합니다.
+
+* **최초 기동 시 (이미지 빌드 및 DB 초기 세팅):**
+```bash
+docker-compose up --build -d
+
+```
+* 최초 실행 시 이미지 빌드 및 DB 세팅으로 인해 몇 분 정도 소요될 수 있습니다.
+
+* **일반 기동 (평상시 실행):** 기존 데이터베이스와 캐시를 유지하며 컨테이너만 백그라운드에서 실행합니다.
+```bash
+docker-compose start
+# 또는
+docker-compose up -d
+
+```
+
+
+* **시스템 종료:**
+```bash
+docker-compose stop
+
+```
+
+* 기동이 완료되면 브라우저에서 `http://localhost:3000` 으로 접속하여 시스템을 바로 사용할 수 있습니다!
+
+---
+
+## 2. 프론트엔드 아키텍처 (Next.js App Router 기반)
 
 시스템의 무한한 확장을 위해 상단 네비게이션 바(GNB)를 통한 **8대 다중 페이지 라우팅 구조**를 채택했습니다.
 
-### 1.1. 프론트엔드 기술 스택
+### 2.1. 프론트엔드 기술 스택
 
 * **Core Framework:** Next.js (React) + TypeScript
 * **Data Fetching & State:** TanStack Query (React Query)
@@ -28,36 +81,33 @@
 * **Drag & Drop:** @dnd-kit/core (노드 블록 드래그 앤 드롭 조립용)
 * **CSV Parsing:** PapaParse (클라이언트 사이드 파싱을 통한 서버 부하 제로화)
 
-### 1.2. GNB 8대 핵심 메뉴 구성
+### 2.2. 핵심 메뉴 및 UI 구성
 
-1. **[ / ] 파이프라인 관제 (Pipeline Dashboard)**   
-대시보드 통계(비용, 토큰, RAG 캐시 적중률, **핫 키워드 및 위험 감지 알림**), 비정형 데이터 수동 적재 및 오류 교정 (Process A), 일괄 대량 합성, 외부 데이터(EXT) 동기화 스케줄러의 **동적 주기 제어(Pause/Resume)**를 관제하는 실시간 메인 화면.
-
-2. **[ /builder ]  파이프라인 빌더 (Pipeline Builder)**  
-백엔드 로직 수정 없이 UI에서 코어 모듈(Node)을 조립하여 새로운 데이터 처리 파이프라인(JSON Config)을 동적으로 설계하고 프리셋으로 저장하는 비주얼 에디터 캔버스입니다. 드래그 앤 드롭으로 노드 순서를 변경하고, 동적 변수(`{{...}}`)를 속성(Params)에 바인딩할 수 있습니다.
-
-3. **[ /archive ] 일지 및 리포트 보관소 (Archive)**  
+1. **[ / ] 파이프라인 관제 (Pipeline Dashboard)**
+대시보드 통계(비용, 토큰, RAG 캐시 적중률, 핫 키워드 및 위험 감지 알림), 비정형 데이터 수동 적재 및 오류 교정, 일괄 대량 합성, 외부 데이터(EXT) 동기화 스케줄러의 동적 주기 제어(Pause/Resume)를 관제하는 실시간 메인 화면.
+2. **[ /builder ] 파이프라인 스튜디오 (Pipeline Studio)**
+백엔드 로직 수정 없이 UI에서 코어 모듈(Node)을 조립하여 새로운 데이터 처리 파이프라인(JSON Config)을 설계하는 **'파이프라인 빌더'** 모드와, 파이프라인 스텝별 프롬프트 및 JSON 스키마 매핑을 동적으로 제어하는 **'프롬프트 랩'** 모드를 단일 공간에서 지휘합니다.
+3. **[ /archive ] 일지 및 리포트 보관소 (Archive)**
 AI가 합성한 단기 일지(`core.event_logs`)와 심층 요약 리포트(`core.event_briefings`)를 검색, 열람, 편집 및 대량 관리(일괄 삭제/주입/추출)하는 전용 보관소.
 
-4. **[ /domain ] 마스터 관리 (Domain Admin)**  
-AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와 상태 코드(`domain.mst_status`)를 관리. '싱글 테이블 & JSONB 가상 테이블 전략'을 사용하여 화면에서 동적 속성(Key-Value)을 자유롭게 추가 가능.
 
-5. **[ /memory ] 기억 탐색기 (Memory Explorer)**  
-벡터 저장소(`core.event_memories`)의 불변 데이터를 자연어 및 다중 조건으로 검색해 보고 RAG의 코사인 거리(Cosine Distance)를 테스트. 체리피킹한 팩트들을 기반으로 **AI 요약 리포트(Briefing)** 생성을 트리거하는 디버깅 화면.
+4. **[ /memory ] 기억 탐색기 (Memory Explorer)**
+벡터 저장소(`core.event_memories`)의 불변 데이터를 자연어 및 다중 조건으로 검색해 보고 RAG의 코사인 거리(Cosine Distance)를 테스트. 체리피킹한 팩트들을 기반으로 AI 요약 리포트(Briefing) 생성을 트리거하는 디버깅 화면.
 
-6. **[ /prompt ] 프롬프트 랩 (Prompt Lab)**  
-백엔드 재배포 없이 각 파이프라인 스텝(A_EXTRACTION, B_PLANNING 등)별 시스템 프롬프트, JSON 스키마 매핑, `temperature`, `max_length`를 동적으로 제어.
 
-7. **[ /studio ] 창작 스튜디오 (Creative Studio)**  
+5. **[ /studio ] 창작 스튜디오 (Creative Studio)**
 기존 일지, 리포트, 창작물을 다중 선택(Source)하여 새로운 톤앤매너로 글을 재구성하는 워크스페이스. 메타 프롬프트(Meta-Prompt) 역설계 및 2차 창작물 보관소 기능을 지원.
 
-8. **[ /system ] 시스템 데이터 탐색기 (DB Browser)**  
-최고 관리자 전용 도구로, 로컬 데이터베이스의 `ext`, `core`, `domain`, `raw` 스키마 내 모든 물리 테이블을 안전하게 열람합니다. SQLAlchemy Reflection을 사용하여 SQL Injection을 차단하고, 대용량 벡터 및 JSONB 데이터 렌더링 시의 브라우저 DOM 폭발(UI Freezing)을 완벽히 방어합니다.
+6. **[ /domain ] 데이터 딕셔너리 (Data Dictionary)**
+AI가 참조할 기준 데이터(`domain.mst_entities` 등) 및 상태 코드를 제어하는 **'마스터 관리'** 모드와, 최고 관리자 전용 도구로서 로컬 데이터베이스 스키마 내 모든 물리 테이블을 안전하게 열람하는 **'시스템 데이터 탐색기(DB Browser)'** 모드를 통합 제공합니다.
+
+7. **[ ADM 버튼 ] 시스템 환경 설정 (System Settings)**
+GNB 우측 상단의 버튼을 통해 백엔드 재시작이나 `.env` 파일의 억지스러운 수정 없이, Gemini API Key와 Model Version을 동적으로 변경 및 즉시 적용할 수 있습니다 (BYOK 보안 적용).
 
 
 ---
 
-## 2. 데이터베이스 스키마 및 마스터 룰
+## 3. 데이터베이스 스키마 및 마스터 룰
 
 시스템의 데이터 무결성을 보장하기 위해 쓰기(Write) 권한과 참조(Read) 권한을 철저히 분리합니다. 파이프라인은 `domain` 및 `ext` 스키마를 오직 참조만 합니다.
 
@@ -86,7 +136,7 @@ AI가 참조할 기준 데이터(`domain.mst_entities`, `domain.mst_objects`)와
 
 ---
 
-## 3. 백엔드 핵심 비즈니스 로직 (API Flow)
+## 4. 백엔드 핵심 비즈니스 로직 (API Flow)
 
 ### 프로세스 A: 【범용 팩트 구조화 파이프라인】 (`raw` ➡️ `core`)
 
@@ -158,9 +208,13 @@ API 파이프라인 로직을 'Node(모듈)' 단위로 격리후, **`PipelineOrc
 * **`Persist_DB`:** 산출된 최종 데이터를 시스템 테이블에 안전하게 Upsert.
 
 ---
-## 4. 업데이트 내역 (Changelog)
+## 5. 업데이트 내역 (Changelog)
+* **2026.08.30 (v0.3.1)**
+* `docker-compose start/stop` 기반의 효율적인 컨테이너 일반 기동 프로세스 적용
+* 시스템 설정 관리를 위한 GNB 통합 및 `[ADM]` 환경 설정 모달 업데이트
+
 * **2026.08.29 (v0.3.0)**
-  - **노드 기반 프레임워크 (Headless Engine) 전면 도입.**
+  - 노드 기반 프레임워크 (Headless Engine) 전면 도입.
   - 프론트엔드 비주얼 파이프라인 빌더 기능 추가 (`/builder`).
   - 파이프라인 설계도(JSON Config) 보존을 위한 `mst_pipelines` 테이블 추가.
   - `PipelineOrchestrator` 및 상태 보존 `PipelineContext` 구현.
@@ -179,7 +233,7 @@ API 파이프라인 로직을 'Node(모듈)' 단위로 격리후, **`PipelineOrc
 
 ---
 
-## 5. 시스템 아키텍처 및 파이프라인 다이어그램
+## 6. 시스템 아키텍처 및 파이프라인 다이어그램
 
 확장성을 고려하여 백엔드 API 레이어를 철저하게 분리된 모듈로 개편했습니다.
 
@@ -188,7 +242,7 @@ API 파이프라인 로직을 'Node(모듈)' 단위로 격리후, **`PipelineOrc
 ├── 1. Trigger Layer (Client / Job / Event)
 │   ├── 스케줄링 배치 (APScheduler - EXT 동기화 및 10분 주기 폴링)
 │   ├── 수동 API Call (수동 적재, 텍스트 교정, 2차 창작, 대량 합성)
-│   └── Event-Driven (Direct Local NVMe Upload ➡️ BackgroundTask)
+│   └── Event-Driven (Direct Local Storage Upload ➡️ BackgroundTask)
 │
 ├── 2. API Gateway & Core Engine (FastAPI Routers)
 │   │

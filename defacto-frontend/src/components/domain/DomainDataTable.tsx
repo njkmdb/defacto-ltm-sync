@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Lock, RefreshCw } from 'lucide-react';
+import useLocaleFormatter from '@/hooks/useLocaleFormatter';
 
 interface DomainDataTableProps {
   activeTab: 'ENTITY' | 'OBJECT' | 'STATUS';
@@ -18,21 +20,19 @@ const formatAttributes = (attrs: Record<string, any>) => {
   return Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join('  |  ');
 };
 
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit' });
-};
-
 export default function DomainDataTable({
   activeTab, isLoading, currentDataList, selectedIds, toggleSelectAll, toggleSelect, openEditModal
 }: DomainDataTableProps) {
+
+  const t = useTranslations('Domain');
+  const { formatDateTime } = useLocaleFormatter();
 
   if (isLoading) {
     return <div className="flex justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-emerald-500" /></div>;
   }
 
   if (!currentDataList || currentDataList.length === 0) {
-    return <p className="text-center text-gray-400 font-bold py-20">조건에 일치하는 데이터가 없습니다.</p>;
+    return <p className="text-center text-gray-400 font-bold py-20">{t('empty_match')}</p>;
   }
 
   return (
@@ -47,23 +47,23 @@ export default function DomainDataTable({
               className={`w-4 h-4 rounded cursor-pointer ${activeTab === 'ENTITY' ? 'text-emerald-600' : 'text-indigo-600'}`} 
             />
           </th>
-          <th className="p-3 w-20 text-xs font-extrabold text-gray-500 uppercase tracking-wider">ID</th>
-          <th className="p-3 w-32 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{activeTab === 'STATUS' ? 'Category' : 'Type'}</th>
-          <th className="p-3 w-56 text-xs font-extrabold text-gray-500 uppercase tracking-wider">Name</th>
+          <th className="p-3 w-20 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{t('col_id')}</th>
+          <th className="p-3 w-32 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{activeTab === 'STATUS' ? t('col_category') : t('col_type')}</th>
+          <th className="p-3 w-56 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{t('col_name')}</th>
           
-          {activeTab !== 'STATUS' && <th className="p-3 w-24 text-xs font-extrabold text-gray-500 uppercase tracking-wider">Parent</th>}
+          {activeTab !== 'STATUS' && <th className="p-3 w-24 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{t('col_parent')}</th>}
           
           {activeTab === 'STATUS' ? (
-            <th className="p-3 w-32 text-xs font-extrabold text-gray-500 uppercase tracking-wider text-center">Status</th>
+            <th className="p-3 w-32 text-xs font-extrabold text-gray-500 uppercase tracking-wider text-center">{t('col_status')}</th>
           ) : (
             <>
-              <th className="p-3 w-24 text-center text-xs font-extrabold text-gray-500 uppercase tracking-wider">Status ID</th>
-              <th className="p-3 w-56 text-xs font-extrabold text-gray-500 uppercase tracking-wider">Attributes (JSONB)</th>
+              <th className="p-3 w-24 text-center text-xs font-extrabold text-gray-500 uppercase tracking-wider">{t('col_status_id')}</th>
+              <th className="p-3 w-56 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{t('col_attr')} (JSONB)</th>
             </>
           )}
           
-          <th className="p-3 w-36 text-xs font-extrabold text-gray-500 uppercase tracking-wider">Created At</th>
-          <th className="p-3 w-36 text-xs font-extrabold text-gray-500 uppercase tracking-wider">Updated At</th>
+          <th className="p-3 w-36 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{t('col_created')}</th>
+          <th className="p-3 w-36 text-xs font-extrabold text-gray-500 uppercase tracking-wider">{t('col_updated')}</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
@@ -78,7 +78,7 @@ export default function DomainDataTable({
               key={rId} 
               onClick={() => toggleSelect(rId)}
               onDoubleClick={() => !isSystemCore && openEditModal(record)} 
-              title={isSystemCore ? "코어 시스템 딕셔너리는 수정할 수 없습니다." : "더블클릭하여 수정 창 열기"}
+              title={isSystemCore ? t('modal_sys_warn') : t('modal_dbl_click')}
               className={`transition-colors ${!isSystemCore ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-not-allowed bg-gray-50/50'} ${isSelected ? (activeTab === 'ENTITY' ? 'bg-emerald-50/50' : 'bg-indigo-50/50') : ''}`}
             >
               <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
@@ -116,8 +116,8 @@ export default function DomainDataTable({
                 </>
               )}
 
-              <td className="p-3 text-xs font-medium text-gray-400">{formatDate(record.ne_ts)}</td>
-              <td className="p-3 text-xs font-medium text-gray-400">{formatDate(record.up_ts)}</td>
+              <td className="p-3 text-xs font-medium text-gray-400">{formatDateTime(record.ne_ts)}</td>
+              <td className="p-3 text-xs font-medium text-gray-400">{formatDateTime(record.up_ts)}</td>
             </tr>
           );
         })}

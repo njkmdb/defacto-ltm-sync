@@ -13,11 +13,15 @@ from schemas.api_schemas import (
 
 logger = logging.getLogger(__name__)
 
+def get_lang_code(target_lang: str) -> str:
+    lang_map = {"Japanese": "ja", "English": "en", "Korean": "ko"}
+    return lang_map.get(target_lang, "ko")
+
 def get_mst_object_types(db: Session) -> dict:
     types = db.query(MstObject.object_type).filter(MstObject.object_status_id != 9, MstObject.object_id != 0).distinct().all()
     return {"status": "success", "data": [t[0] for t in types if t[0]]}
 
-def get_mst_objects(db: Session, page: int = 1, limit: int = 20, type_filter: str = None, search_conditions: str = None) -> dict:
+def get_mst_objects(db: Session, page: int = 1, limit: int = 20, type_filter: str = None, search_conditions: str = None, target_lang: str = "Korean") -> dict:
     query = db.query(MstObject).filter(MstObject.object_status_id != 9, MstObject.object_id != 0)
     if type_filter and type_filter != 'ALL': query = query.filter(MstObject.object_type == type_filter)
     if search_conditions:
@@ -50,7 +54,25 @@ def get_mst_objects(db: Session, page: int = 1, limit: int = 20, type_filter: st
     total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
     offset = (page - 1) * limit
     objects = query.order_by(MstObject.object_id.desc()).offset(offset).limit(limit).all()
-    data = [{"object_id": o.object_id, "parent_object_id": o.parent_object_id, "object_type": o.object_type, "object_name": o.object_name, "attributes": o.attributes or {}, "object_status_id": o.object_status_id, "ne_ts": o.ne_ts, "up_ts": o.up_ts} for o in objects]
+    
+    lang_code = get_lang_code(target_lang)
+    data = []
+    for o in objects:
+        final_name = o.object_name
+        if o.attributes and f"name_{lang_code}" in o.attributes:
+            final_name = o.attributes[f"name_{lang_code}"]
+            
+        data.append({
+            "object_id": o.object_id, 
+            "parent_object_id": o.parent_object_id, 
+            "object_type": o.object_type, 
+            "object_name": final_name, 
+            "attributes": o.attributes or {}, 
+            "object_status_id": o.object_status_id, 
+            "ne_ts": o.ne_ts, 
+            "up_ts": o.up_ts
+        })
+        
     return {"status": "success", "data": data, "meta": { "total_count": total_count, "current_page": page, "total_pages": total_pages, "limit": limit }}
 
 def create_mst_object(request: CreateMstObjectRequest, db: Session) -> dict:
@@ -128,7 +150,6 @@ def bulk_upsert_mst_objects(request: BulkUpsertMstObjectRequest, db: Session) ->
                 new_obj = MstObject(parent_object_id=item.parent_object_id, object_type=item.object_type, object_name=item.object_name, attributes=item.attributes, object_status_id=item.object_status_id or 1)
                 db.add(new_obj)
                 
-        # 💡 [치명적 결함 방어] 명시적 PK 삽입 이후 PostgreSQL 시퀀스 동기화로 500 에러 원천 차단
         db.execute(text("SELECT setval('domain.mst_objects_object_id_seq', COALESCE((SELECT MAX(object_id) FROM domain.mst_objects), 1), true)"))
         db.commit()
         return {"status": "success", "message": f"총 {len(request.items)}건의 객체 데이터가 성공적으로 일괄 반영(Upsert) 되었습니다."}

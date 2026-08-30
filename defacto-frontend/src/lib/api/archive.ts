@@ -1,9 +1,4 @@
-import axios from 'axios';
-
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080',
-  headers: { 'Content-Type': 'application/json' },
-});
+import { apiClient } from './client';
 
 export const saveContextSummary = async (base_entity_id: number, reference_date: string, edited_summary: string, action_items: any[], logId?: number, schema_name: string = "LTM_Synthesis") => {
   const payload: any = { base_entity_id: base_entity_id || 1024, reference_date, edited_summary, action_items, schema_name };

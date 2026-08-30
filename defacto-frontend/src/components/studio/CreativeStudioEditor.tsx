@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Sparkles, RefreshCw, Save, Download, FileText, Wand2, Type, Database, ArrowLeft, Search, X, Trash2, Copy } from 'lucide-react';
 import { generateCreativeContent, generateMetaPrompt, saveCreativeContent } from '@/lib/api/pipeline';
 import { getPrompts, createPrompt, deletePrompt } from '@/lib/api/prompt';
@@ -9,6 +10,7 @@ import { getEventLog, getEventLogs } from '@/lib/api/archive';
 import { getEventBriefing, getEventBriefings } from '@/lib/api/memoryApi';
 import { getEventCreation, getEventCreations } from '@/lib/api/creative';
 import { PromptItem } from '@/types/api';
+import useLocaleFormatter from '@/hooks/useLocaleFormatter';
 
 interface CreativeStudioEditorProps {
   initialSources?: { type: 'LOG' | 'BRIEFING' | 'CREATION'; id: number; baseEntityId: number }[];
@@ -23,7 +25,9 @@ type SelectedSource = {
 };
 
 export default function CreativeStudioEditor({ initialSources, onNavigateArchive }: CreativeStudioEditorProps) {
+  const t = useTranslations('Studio');
   const queryClient = useQueryClient();
+  const { formatDateOnly } = useLocaleFormatter();
   
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
   const [activeSourceIndex, setActiveSourceIndex] = useState<number>(0);
@@ -63,9 +67,10 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // 💡 내용물 길이에 맞춰 텍스트 박스 높이를 유동적으로 자동 조절합니다.
   const adjustHeight = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '200px'; 
+      textareaRef.current.style.height = 'auto'; // 높이를 초기화하여 줄어드는 경우도 대응
       const scrollHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.max(200, scrollHeight) + 'px';
     }
@@ -81,11 +86,11 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
 
   const handleCopy = (text: string, label: string) => {
     if (!text.trim()) {
-      return alert("복사할 내용이 없습니다.");
+      return alert(t('alert_copy_empty'));
     }
     navigator.clipboard.writeText(text)
-      .then(() => alert(`${label} 클립보드에 복사되었습니다.`))
-      .catch(err => alert("복사 실패: " + err));
+      .then(() => alert(t('alert_copy_success', { label })))
+      .catch(err => alert(t('alert_copy_fail', { err })));
   };
 
   const toggleTempSelect = (type: 'LOG' | 'BRIEFING' | 'CREATION', id: number, entityId: number) => {
@@ -124,14 +129,14 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       } else if (sourceType === 'BRIEFING') {
         const res = await getEventBriefing(sourceId, baseEntityId);
         const b = res.data;
-        const findingsStr = b.key_findings?.length ? b.key_findings.join('\n- ') : '없음';
-        const risksStr = b.risk_and_warnings?.length ? b.risk_and_warnings.join('\n- ') : '없음';
-        const actionsStr = b.recommended_actions?.length ? b.recommended_actions.join('\n- ') : '없음';
-        return `■ 총평\n${b.executive_summary}\n\n■ 주요 발견\n- ${findingsStr}\n\n■ 위험/경고\n- ${risksStr}\n\n■ 행동 지침\n- ${actionsStr}`;
+        const findingsStr = b.key_findings?.length ? b.key_findings.join('\n- ') : 'None';
+        const risksStr = b.risk_and_warnings?.length ? b.risk_and_warnings.join('\n- ') : 'None';
+        const actionsStr = b.recommended_actions?.length ? b.recommended_actions.join('\n- ') : 'None';
+        return `■ Exec Summary\n${b.executive_summary}\n\n■ Key Findings\n- ${findingsStr}\n\n■ Risks & Warnings\n- ${risksStr}\n\n■ Recommended Actions\n- ${actionsStr}`;
       } else if (sourceType === 'CREATION') {
         const res = await getEventCreation(sourceId, baseEntityId);
         const c = res.data;
-        return `■ 원본 창작물 제목: ${c.creative_title}\n\n■ 창작물 내용:\n${c.creative_content}`;
+        return `■ Title: ${c.creative_title}\n\n■ Content:\n${c.creative_content}`;
       }
       return '';
     },
@@ -169,7 +174,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       setActiveTone('CUSTOM');
       setSystemPrompt(data.data.suggested_prompt);
     },
-    onError: (err: any) => alert(err.response?.data?.detail || "메타 프롬프트 생성 실패")
+    onError: (err: any) => alert(err.response?.data?.detail || t('alert_meta_fail'))
   });
 
   const generateMut = useMutation({
@@ -180,7 +185,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       }));
       
       if (checkedSources.length === 0) {
-          throw new Error("저장할 소스가 최소 1개 이상 선택되어야 합니다.");
+          throw new Error(t('alert_source_empty'));
       }
       
       const rep = selectedSources.find(s => s.isChecked) || selectedSources[0]; 
@@ -197,7 +202,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       setCreativeContent(data.data.creative_content);
       setCreativeTitle(data.data.creative_title);
     },
-    onError: (err: any) => alert(err.response?.data?.detail || err.message || "AI 팩트 훼손 감지(Hallucination Block) 또는 오류가 발생했습니다.")
+    onError: (err: any) => alert(err.response?.data?.detail || err.message || t('alert_gen_fail'))
   });
 
   const saveMut = useMutation({
@@ -208,7 +213,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       }));
       
       if (checkedSources.length === 0) {
-          throw new Error("저장할 소스가 최소 1개 이상 선택되어야 합니다.");
+          throw new Error(t('alert_source_empty'));
       }
       
       const rep = selectedSources.find(s => s.isChecked) || selectedSources[0]; 
@@ -221,11 +226,11 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       });
     },
     onSuccess: (data) => {
-      alert(data.message);
+      alert(data.message || t('alert_save_success'));
       queryClient.invalidateQueries({ queryKey: ['eventCreations'] });
       onNavigateArchive(); 
     },
-    onError: (err: any) => alert(err.response?.data?.detail || err.message || "저장에 실패했습니다.")
+    onError: (err: any) => alert(err.response?.data?.detail || err.message || t('alert_save_fail'))
   });
 
   const savePresetMut = useMutation({
@@ -233,30 +238,30 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
       target_type: 'TONE_PRESET', target_value: presetName, pipeline_step: 'C_CREATIVE', schema_name: 'CreativeContentSchema', system_prompt: systemPrompt, temperature, max_length: maxLength, is_active: true
     }),
     onSuccess: () => {
-      alert("새로운 톤앤매너 프리셋이 성공적으로 저장되었습니다.");
+      alert(t('alert_preset_success'));
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
     },
-    onError: (err: any) => alert(err.response?.data?.detail || "프리셋 저장 실패")
+    onError: (err: any) => alert(err.response?.data?.detail || t('alert_preset_fail'))
   });
 
   const deletePresetMut = useMutation({
     mutationFn: async (id: number) => await deletePrompt(id),
     onSuccess: () => {
-      alert("프리셋이 성공적으로 삭제되었습니다.");
+      alert(t('alert_preset_del_success'));
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
       setActiveTone('');
       setSystemPrompt('');
     },
-    onError: (err: any) => alert(err.response?.data?.detail || "프리셋 삭제 실패")
+    onError: (err: any) => alert(err.response?.data?.detail || t('alert_preset_del_fail'))
   });
 
   const handleSavePreset = () => {
-    const name = prompt("새로운 프리셋의 이름을 입력하세요 (예: 코믹 오피스물)");
+    const name = prompt(t('prompt_preset_name'));
     if (name && name.trim()) savePresetMut.mutate(name.trim());
   };
 
   const handleDeletePreset = (id: number) => {
-    if (confirm("현재 선택된 톤앤매너 프리셋을 영구 삭제하시겠습니까?")) {
+    if (confirm(t('confirm_preset_del'))) {
       deletePresetMut.mutate(id);
     }
   };
@@ -277,14 +282,18 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
 
   return (
     <div className="w-full h-auto flex flex-col bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-      <div className="flex flex-row h-[850px] border-b border-gray-200 shrink-0">
-        <div className="w-[50%] bg-gray-50 flex flex-col border-r border-gray-200 shrink-0 overflow-hidden">
+      
+      {/* 💡 상단 2분할 (COL 1 & COL 2) - w-1/2 로 공간을 꽉 채우도록 교정 */}
+      <div className="flex flex-row w-full h-[600px] border-b border-gray-200 shrink-0">
+        
+        {/* COL 1: 원본 데이터 소스 */}
+        <div className="w-1/2 bg-gray-50 flex flex-col border-r border-gray-200 shrink-0 overflow-hidden">
           <div className="p-4 bg-gray-100 border-b border-gray-200 flex justify-between items-center shrink-0">
             <h3 className="font-bold flex items-center gap-2 text-gray-700">
-              <Database className="w-4 h-4"/> 1. 원본 팩트
+              <Database className="w-4 h-4"/> {t('panel_1_title')}
             </h3>
             <button onClick={() => setIsSourceModalOpen(true)} className="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded-lg text-indigo-700 hover:bg-indigo-50 flex items-center gap-1.5 font-bold shadow-sm transition-colors">
-              <Search className="w-3.5 h-3.5" /> 찾아보기
+              <Search className="w-3.5 h-3.5" /> {t('btn_browse')}
             </button>
           </div>
 
@@ -302,7 +311,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                   className="w-3.5 h-3.5 text-indigo-600 rounded cursor-pointer mr-0.5"
                 />
                 <FileText className={`w-3.5 h-3.5 ${activeSourceIndex === idx ? 'text-indigo-500' : 'text-gray-400'}`} /> 
-                {src.type === 'LOG' ? '일지' : src.type === 'BRIEFING' ? '리포트' : '창작물'} #{src.id}
+                {src.type === 'LOG' ? t('src_log') : src.type === 'BRIEFING' ? t('src_briefing') : t('src_creation')} #{src.id}
                 <button 
                   onClick={(e) => handleRemoveSource(e, idx)} 
                   className={`ml-1 rounded transition-colors ${activeSourceIndex === idx ? 'text-gray-400 hover:text-red-500 hover:bg-red-50' : 'text-gray-400 hover:text-red-500'}`}
@@ -317,8 +326,8 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
             {selectedSources.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-center">
                  <Database className="w-10 h-10 mb-3 opacity-20" />
-                 <p className="text-sm font-bold">불러온 원본 데이터가 없습니다.</p>
-                 <p className="text-xs mt-1 text-gray-500 leading-relaxed">상단의 '찾아보기' 버튼을 클릭하여<br/>원하는 데이터를 다중 선택해 불러오세요.</p>
+                 <p className="text-sm font-bold">{t('empty_src_title')}</p>
+                 <p className="text-xs mt-1 text-gray-500 leading-relaxed whitespace-pre-wrap">{t('empty_src_desc')}</p>
               </div>
             ) : isSourceLoading ? (
                <div className="flex-1 flex flex-col items-center justify-center text-purple-500"><RefreshCw className="w-8 h-8 animate-spin mb-4"/></div>
@@ -332,7 +341,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                 </div>
                 <div className="relative flex-1 flex flex-col min-h-0">
                   {sourceContent && (
-                    <button onClick={() => handleCopy(sourceContent, '원본 팩트가')} className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shadow-sm bg-white/90 backdrop-blur-sm border border-gray-200 z-10" title="클립보드 복사">
+                    <button onClick={() => handleCopy(sourceContent, t('copy_src_label'))} className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shadow-sm bg-white/90 backdrop-blur-sm border border-gray-200 z-10" title={t('tooltip_copy')}>
                       <Copy className="w-4 h-4" />
                     </button>
                   )}
@@ -345,15 +354,16 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
           </div>
         </div>
         
-        <div className="w-[50%] bg-white flex flex-col shrink-0">
+        {/* COL 2: 프롬프트 컨트롤 센터 */}
+        <div className="w-1/2 bg-white flex flex-col shrink-0">
           <div className="p-4 bg-purple-50/50 border-b border-gray-200 shrink-0">
-            <h3 className="font-bold flex items-center gap-2 text-purple-800"><Wand2 className="w-4 h-4"/> 2. 톤앤매너 제어 (Meta-Prompt)</h3>
+            <h3 className="font-bold flex items-center gap-2 text-purple-800"><Wand2 className="w-4 h-4"/> {t('panel_2_title')}</h3>
           </div>
           <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-5">
             <div className="flex flex-col gap-4 shrink-0">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-gray-500">사전 정의 프리셋 칩</label>
+                  <label className="text-xs font-bold text-gray-500">{t('label_preset_chip')}</label>
                   {activePreset && (
                     <button 
                       onClick={() => handleDeletePreset(activePreset.prompt_id)}
@@ -361,13 +371,13 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                       className="text-[10px] bg-red-50 text-red-500 hover:text-red-600 border border-red-100 hover:bg-red-100 px-2 py-0.5 rounded shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50"
                     >
                       {deletePresetMut.isPending ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Trash2 className="w-3 h-3"/>}
-                      선택 프리셋 삭제
+                      {t('btn_del_preset')}
                     </button>
                   )}
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {presets?.data?.length === 0 && <span className="text-xs text-gray-400">등록된 프리셋이 없습니다.</span>}
+                  {presets?.data?.length === 0 && <span className="text-xs text-gray-400">{t('empty_preset')}</span>}
                   {presets?.data?.map((p: PromptItem) => (
                     <button 
                       key={p.prompt_id} 
@@ -386,11 +396,11 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
               </div>
               
               <div className="border-t border-gray-100 pt-4">
-                <label className="text-xs font-bold text-gray-500 mb-2 block">마법사 모드 (프롬프트 자동 제안)</label>
+                <label className="text-xs font-bold text-gray-500 mb-2 block">{t('label_wizard')}</label>
                 <div className="flex gap-2">
-                  <input type="text" value={userIntent} onChange={e => setUserIntent(e.target.value)} onKeyDown={e => e.key === 'Enter' && metaPromptMut.mutate()} placeholder="예: 무협지 스타일로 비장하게" className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400 font-medium text-gray-700" />
+                  <input type="text" value={userIntent} onChange={e => setUserIntent(e.target.value)} onKeyDown={e => e.key === 'Enter' && metaPromptMut.mutate()} placeholder={t('placeholder_intent')} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400 font-medium text-gray-700" />
                   <button onClick={() => metaPromptMut.mutate()} disabled={metaPromptMut.isPending || !userIntent.trim()} className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg font-bold text-xs hover:bg-purple-200 transition-colors shrink-0 disabled:opacity-50 flex items-center gap-1">
-                    {metaPromptMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin"/> : <Sparkles className="w-3.5 h-3.5"/>} 작성
+                    {metaPromptMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin"/> : <Sparkles className="w-3.5 h-3.5"/>} {t('btn_draft')}
                   </button>
                 </div>
               </div>
@@ -399,11 +409,11 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
             <div className="flex-1 flex flex-col border-t border-gray-100 pt-4 min-h-0">
               <div className="mb-2 flex items-center justify-between">
                  <label className="text-xs font-bold text-gray-500">
-                   시스템 프롬프트 (수동 편집)
+                   {t('label_sys_prompt')}
                  </label>
                  <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
                    <button onClick={handleSavePreset} disabled={!systemPrompt.trim() || savePresetMut.isPending} className="text-[10px] bg-white border border-gray-300 text-gray-600 hover:bg-gray-100 px-2 py-0.5 rounded shadow-sm transition-colors disabled:opacity-50 flex items-center gap-1">
-                     <Save className="w-3 h-3" /> 내 프리셋으로 저장
+                     <Save className="w-3 h-3" /> {t('btn_save_my_preset')}
                    </button>
                    
                    <div className="flex items-center gap-1 relative group">
@@ -432,11 +442,11 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
 
               <div className="relative flex-1 flex flex-col mb-4 min-h-[120px]">
                 {systemPrompt && (
-                  <button onClick={() => handleCopy(systemPrompt, '시스템 프롬프트가')} className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors shadow-sm bg-white/90 backdrop-blur-sm border border-gray-200 z-10" title="클립보드 복사">
+                  <button onClick={() => handleCopy(systemPrompt, t('copy_src_label'))} className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors shadow-sm bg-white/90 backdrop-blur-sm border border-gray-200 z-10" title={t('tooltip_copy')}>
                     <Copy className="w-4 h-4" />
                   </button>
                 )}
-                <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} className="flex-1 w-full p-4 pr-12 border border-gray-300 rounded-xl text-sm leading-relaxed outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50 shadow-inner resize-none text-gray-800 font-medium"/>
+                <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} className="flex-1 w-full p-4 pr-12 border border-gray-300 rounded-xl text-sm leading-relaxed outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50 shadow-inner resize-none text-gray-800 font-medium" placeholder={t('placeholder_sys_prompt')}/>
               </div>
               
               <button 
@@ -445,51 +455,56 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                 className={`w-full py-3.5 text-white rounded-xl font-bold flex justify-center items-center gap-2 transition-colors disabled:opacity-50 shadow-md shrink-0 ${checkedCount > 0 ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-400'}`}
               >
                 {generateMut.isPending ? <RefreshCw className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5"/>} 
-                {checkedCount > 0 ? `🚀 체크된 ${checkedCount}개의 팩트로 창작 시작` : '팩트를 체크해주세요'}
+                {checkedCount > 0 ? t('btn_start_creation', { count: checkedCount }) : t('btn_check_fact')}
               </button>
             </div>
           </div>
         </div>
+
       </div>
 
-      <div className="w-full bg-white flex flex-col">
+      {/* 💡 하단 전체 너비 (COL 3: 최종 결과물) */}
+      <div className="flex flex-col bg-white w-full">
         <div className="p-4 bg-emerald-50/50 border-b border-gray-200 flex justify-between items-center shrink-0">
-          <h3 className="font-bold flex items-center gap-2 text-emerald-800"><FileText className="w-4 h-4"/> 3. 최종 결과물 에디터</h3>
-          <button onClick={onNavigateArchive} className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 bg-white border border-gray-300 px-3 py-1.5 rounded-lg shadow-sm transition-colors"><ArrowLeft className="w-4 h-4"/> 아카이브 목록으로 이동</button>
+          <h3 className="font-bold flex items-center gap-2 text-emerald-800"><FileText className="w-4 h-4"/> {t('panel_3_title')}</h3>
+          <button onClick={onNavigateArchive} className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 bg-white border border-gray-300 px-3 py-1.5 rounded-lg shadow-sm transition-colors"><ArrowLeft className="w-4 h-4"/> {t('btn_go_archive')}</button>
         </div>
         
         <div className="p-6 flex flex-col gap-4 bg-gray-50/30">
           {generateMut.isPending ? (
             <div className="flex flex-col items-center justify-center text-purple-600 py-16 min-h-[200px]">
               <RefreshCw className="w-12 h-12 animate-spin mb-4 text-purple-400"/>
-              <p className="font-bold text-lg text-purple-800">창의적인 문장으로 다중 팩트를 재구성하고 있습니다...</p>
+              <p className="font-bold text-lg text-purple-800">{t('loading_reconstruct')}</p>
+              <p className="text-sm font-semibold text-purple-500 mt-2 bg-purple-50 px-3 py-1 rounded-full">{t('loading_fact_check')}</p>
             </div>
           ) : !creativeContent ? (
             <div className="flex flex-col items-center justify-center text-gray-300 py-16 min-h-[200px]">
               <Type className="w-16 h-16 mb-4 text-gray-200"/>
-              <p className="font-bold text-gray-400">생성된 2차 창작물이 여기에 표시됩니다.</p>
+              <p className="font-bold text-gray-400">{t('empty_result_title')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('empty_result_desc')}</p>
             </div>
           ) : (
             <>
               <div>
-                <label className="text-xs font-bold text-gray-500 mb-1.5 block">Creative Title</label>
+                <label className="text-xs font-bold text-gray-500 mb-1.5 block">{t('label_title')}</label>
                 <input type="text" value={creativeTitle} onChange={e => setCreativeTitle(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg font-extrabold text-xl text-gray-800 outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm"/>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col pb-4">
                 <label className="text-xs font-bold text-gray-500 mb-1.5 block">
-                  Creative Content
+                  {t('label_content')}
                 </label>
-                <div className="relative w-full">
+                <div className="relative w-full h-full flex flex-col">
                   {creativeContent && (
-                    <button onClick={() => handleCopy(creativeContent, '최종 결과물이')} className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors shadow-sm bg-white/90 backdrop-blur-sm border border-gray-200 z-10" title="클립보드 복사">
+                    <button onClick={() => handleCopy(creativeContent, t('copy_res_label'))} className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors shadow-sm bg-white/90 backdrop-blur-sm border border-gray-200 z-10" title={t('tooltip_copy')}>
                       <Copy className="w-4 h-4" />
                     </button>
                   )}
+                  {/* 💡 텍스트 높이만큼 박스가 늘어나도록 flex-1, h-full 제거 후 overflow-hidden 처리 */}
                   <textarea 
                     ref={textareaRef}
                     value={creativeContent} 
                     onChange={handleContentChange} 
-                    className="w-full p-5 pr-14 border border-gray-300 rounded-xl leading-relaxed text-[15px] text-gray-800 outline-none focus:ring-2 focus:ring-emerald-400 bg-white resize-none shadow-inner overflow-hidden"
+                    className="flex-1 w-full p-5 pr-14 border border-gray-300 rounded-xl leading-relaxed text-[15px] text-gray-800 outline-none focus:ring-2 focus:ring-emerald-400 bg-white resize-none shadow-inner overflow-hidden"
                     style={{ minHeight: '200px' }}
                   />
                 </div>
@@ -500,28 +515,29 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
         
         {creativeContent && !generateMut.isPending && (
           <div className="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 shrink-0">
-            <button onClick={handleDownloadTxt} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-100 flex items-center gap-2 transition-colors shadow-sm"><Download className="w-4 h-4"/> 로컬 다운로드</button>
+            <button onClick={handleDownloadTxt} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-100 flex items-center gap-2 transition-colors shadow-sm"><Download className="w-4 h-4"/> {t('btn_download')}</button>
             <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="px-8 py-2.5 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 flex items-center gap-2 shadow-md disabled:opacity-50 transition-colors">
-              {saveMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} DB 영구 저장
+              {saveMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} {t('btn_db_save')}
             </button>
           </div>
         )}
       </div>
 
+      {/* Modal code */}
       {isSourceModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center backdrop-blur-sm">
            <div className="bg-white rounded-2xl shadow-2xl w-[800px] h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
                  <h2 className="font-extrabold text-xl flex items-center gap-2 text-gray-800">
-                   <Search className="w-6 h-6 text-indigo-600"/> 원본 데이터 다중 불러오기
+                   <Search className="w-6 h-6 text-indigo-600"/> {t('modal_src_title')}
                  </h2>
                  <button onClick={() => setIsSourceModalOpen(false)} className="text-gray-400 hover:text-gray-800 transition-colors"><X className="w-6 h-6"/></button>
               </div>
               
               <div className="flex gap-4 p-4 border-b border-gray-200 shrink-0 bg-white">
-                 <button onClick={() => setSourceSearchTab('LOG')} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-colors ${sourceSearchTab === 'LOG' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>단기 일지 최근 내역</button>
-                 <button onClick={() => setSourceSearchTab('BRIEFING')} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-colors ${sourceSearchTab === 'BRIEFING' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>심층 리포트 최근 내역</button>
-                 <button onClick={() => setSourceSearchTab('CREATION')} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-colors ${sourceSearchTab === 'CREATION' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>2차 창작 최근 내역</button>
+                 <button onClick={() => setSourceSearchTab('LOG')} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-colors ${sourceSearchTab === 'LOG' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{t('tab_recent_log')}</button>
+                 <button onClick={() => setSourceSearchTab('BRIEFING')} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-colors ${sourceSearchTab === 'BRIEFING' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{t('tab_recent_briefing')}</button>
+                 <button onClick={() => setSourceSearchTab('CREATION')} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-colors ${sourceSearchTab === 'CREATION' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{t('tab_recent_creation')}</button>
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
@@ -530,7 +546,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                      {isLogsLoading ? (
                         <div className="py-20 flex justify-center text-indigo-500"><RefreshCw className="w-8 h-8 animate-spin"/></div>
                      ) : !recentLogs?.data || recentLogs.data.length === 0 ? (
-                        <p className="text-center text-gray-400 font-bold py-20">최근 작성된 일지가 없습니다.</p>
+                        <p className="text-center text-gray-400 font-bold py-20">{t('empty_recent_log')}</p>
                      ) : recentLogs.data.map((log: any) => {
                        const isSelected = tempSelectedSources.some(s => s.type === 'LOG' && s.id === log.log_id);
                        return (
@@ -560,7 +576,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                      {isBriefingsLoading ? (
                         <div className="py-20 flex justify-center text-indigo-500"><RefreshCw className="w-8 h-8 animate-spin"/></div>
                      ) : !recentBriefings?.data || recentBriefings.data.length === 0 ? (
-                        <p className="text-center text-gray-400 font-bold py-20">최근 생성된 리포트가 없습니다.</p>
+                        <p className="text-center text-gray-400 font-bold py-20">{t('empty_recent_briefing')}</p>
                      ) : recentBriefings.data.map((b: any) => {
                        const isSelected = tempSelectedSources.some(s => s.type === 'BRIEFING' && s.id === b.briefing_id);
                        return (
@@ -575,7 +591,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                            <div className="flex-1">
                              <div className="flex justify-between items-center mb-2">
                                <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">Briefing ID: {b.briefing_id} (Entity: {b.base_entity_id})</span>
-                               <span className="text-xs font-bold text-gray-400">{new Date(b.ne_ts).toLocaleDateString()}</span>
+                               <span className="text-xs font-bold text-gray-400">{formatDateOnly(b.ne_ts)}</span>
                              </div>
                              <p className="text-sm font-bold text-gray-900 mb-1">{b.query_text}</p>
                              <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed bg-gray-50 p-2 rounded">{b.executive_summary}</p>
@@ -591,7 +607,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                      {isCreationsLoading ? (
                         <div className="py-20 flex justify-center text-indigo-500"><RefreshCw className="w-8 h-8 animate-spin"/></div>
                      ) : !recentCreations?.data || recentCreations.data.length === 0 ? (
-                        <p className="text-center text-gray-400 font-bold py-20">최근 생성된 창작물이 없습니다.</p>
+                        <p className="text-center text-gray-400 font-bold py-20">{t('empty_recent_creation')}</p>
                      ) : recentCreations.data.map((c: any) => {
                        const isSelected = tempSelectedSources.some(s => s.type === 'CREATION' && s.id === c.creation_id);
                        return (
@@ -606,7 +622,7 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
                            <div className="flex-1">
                              <div className="flex justify-between items-center mb-2">
                                <span className="text-xs font-extrabold text-purple-700 bg-purple-50 px-2 py-1 rounded">Creation ID: {c.creation_id} (Entity: {c.base_entity_id})</span>
-                               <span className="text-xs font-bold text-gray-400">{new Date(c.ne_ts).toLocaleDateString()}</span>
+                               <span className="text-xs font-bold text-gray-400">{formatDateOnly(c.ne_ts)}</span>
                              </div>
                              <div className="flex items-center gap-2 mb-1">
                                <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{c.tone_name}</span>
@@ -623,12 +639,12 @@ export default function CreativeStudioEditor({ initialSources, onNavigateArchive
 
               <div className="p-4 border-t border-gray-200 bg-white flex justify-between items-center shrink-0">
                  <div className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                   총 <span className="text-indigo-600 text-lg">{tempSelectedSources.length}</span>개 항목 선택됨
+                   {t('selected_count', { count: tempSelectedSources.length })}
                  </div>
                  <div className="flex items-center gap-3">
-                   <button onClick={() => setIsSourceModalOpen(false)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">취소</button>
+                   <button onClick={() => setIsSourceModalOpen(false)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">{t('btn_cancel')}</button>
                    <button onClick={confirmSelection} className="px-8 py-2.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-md">
-                     <Database className="w-4 h-4" /> 일괄 불러오기
+                     <Database className="w-4 h-4" /> {t('btn_bulk_load')}
                    </button>
                  </div>
               </div>

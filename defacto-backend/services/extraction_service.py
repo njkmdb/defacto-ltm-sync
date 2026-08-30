@@ -18,12 +18,11 @@ logger = logging.getLogger(__name__)
 LRSE_URL = os.getenv("LRSE_URL")
 SESSION_ID = os.getenv("SESSION_ID")
 SESSION_SECRET = os.getenv("SESSION_SECRET")
-API_KEY = os.getenv("GEMINI_API_KEY") 
-MODEL_NAME = os.getenv("MODEL_NAME")
 
-async def process_structure_events(request: StructureEventsRequest, db: Session) -> StructureEventsResponse:
-    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET, api_key=API_KEY, model_name=MODEL_NAME)
-    embedding_service = EmbeddingService(api_key=API_KEY)
+async def process_structure_events(request: StructureEventsRequest, db: Session, target_lang: str = "Korean") -> StructureEventsResponse:
+    # 💡 강제 주입 해제
+    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
+    embedding_service = EmbeddingService()
     
     results = []
     success_count = fail_count = 0
@@ -49,6 +48,8 @@ async def process_structure_events(request: StructureEventsRequest, db: Session)
                 WHERE entity_id != 0 
                 AND (
                     :raw_content ILIKE '%' || entity_name || '%' 
+                    OR (attributes->>'name_ja' IS NOT NULL AND :raw_content ILIKE '%' || (attributes->>'name_ja') || '%')
+                    OR (attributes->>'name_en' IS NOT NULL AND :raw_content ILIKE '%' || (attributes->>'name_en') || '%')
                     OR EXISTS (
                         SELECT 1 
                         FROM jsonb_array_elements_text(
@@ -68,7 +69,7 @@ async def process_structure_events(request: StructureEventsRequest, db: Session)
             candidate_json = json.dumps(candidate_list, ensure_ascii=False)
             
             enhanced_content = f"{raw_record.raw_content}\n\n[참고 마스터 데이터: {candidate_json}]"
-            system_instruction, target_schema_cls, temp, max_len = get_dynamic_prompt(db, "A_EXTRACTION", request.base_entity_id, "HierarchicalFactSchema")
+            system_instruction, target_schema_cls, temp, max_len = get_dynamic_prompt(db, "A_EXTRACTION", request.base_entity_id, "HierarchicalFactSchema", target_lang)
             structured_data = await lrse_client.extract_fact(
                 raw_content=enhanced_content, target_schema_cls=target_schema_cls, system_instruction=system_instruction, temperature=temp, max_tokens=max_len
             )
@@ -107,7 +108,6 @@ async def process_structure_events(request: StructureEventsRequest, db: Session)
     return StructureEventsResponse(status=status_str, message=f"총 {len(request.target_raw_ids)}건 중 {success_count}건 성공, {fail_count}건 실패", results=results)
 
 def get_pipeline_status(db: Session, base_entity_id: int, page: int = 1, limit: int = 20, start_date: str = None, end_date: str = None, status_filter: str = None) -> dict:
-    # 💡 [보안 결함 수정] 대시보드 관제 리스트 타사 데이터 무단 노출 원천 차단
     base_query = db.query(EventRaw).filter(
         EventRaw.sync_status_id != 9,
         EventRaw.base_entity_id == base_entity_id

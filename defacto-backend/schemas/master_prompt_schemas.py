@@ -11,6 +11,7 @@ class MstStatusItem(BaseModel):
     status_id: int
     domain_category: str
     status_name: str
+    attributes: Dict[str, Any] = {} # 💡 Added
     is_active: bool
     ne_ts: Optional[datetime] = None
     up_ts: Optional[datetime] = None
@@ -32,12 +33,14 @@ class CreateMstStatusRequest(BaseModel):
     status_id: int = Field(..., description="명시적 상태 ID 할당")
     domain_category: str = Field(..., min_length=1)
     status_name: str = Field(..., min_length=1)
+    attributes: Dict[str, Any] = {} # 💡 Added
     is_active: bool = True
 
 class UpdateMstStatusRequest(BaseModel):
     status_id: int
     domain_category: str = Field(..., min_length=1)
     status_name: str = Field(..., min_length=1)
+    attributes: Dict[str, Any] = {} # 💡 Added
     is_active: bool = True
 
 class MstEntityItem(BaseModel):

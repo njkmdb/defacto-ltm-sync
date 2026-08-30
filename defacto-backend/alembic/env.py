@@ -1,8 +1,7 @@
-# 1. 파일 최상단 부근에 경로와 모델을 임포트하는 코드 추가
 import os
 import sys
 sys.path.append(os.getcwd()) # 현재 작업 디렉토리를 경로에 추가
-from database.models import Base # Task 1.2에서 만든 파일 경로에 맞게 임포트
+from database.models import Base 
 
 from logging.config import fileConfig
 
@@ -11,39 +10,19 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
+# 환경변수에서 DATABASE_URL 읽어오기 (Docker 환경에서 ini 파일 설정을 덮어씌움)
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    config.set_main_option("sqlalchemy.url", db_url)
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
-    """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -55,14 +34,7 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
-
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -73,13 +45,12 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection, 
             target_metadata=target_metadata,
-            include_schemas=True,     # ★ 이 옵션을 반드시 추가해야 core, raw, domain 스키마를 감지합니다.
-            version_table_schema='public' # 마이그레이션 이력 테이블은 public에 저장
+            include_schemas=True,     
+            version_table_schema='public' 
         )
 
         with context.begin_transaction():
             context.run_migrations()
-
 
 if context.is_offline_mode():
     run_migrations_offline()

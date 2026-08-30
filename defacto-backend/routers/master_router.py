@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database.database import get_db
 from schemas.api_schemas import (
@@ -10,20 +10,37 @@ from schemas.api_schemas import (
     BulkUpsertMstEntityRequest, BulkUpsertMstObjectRequest,
     MstStatusListResponse, MstStatusOptionsResponse, CreateMstStatusRequest, UpdateMstStatusRequest, BulkUpsertMstStatusRequest
 )
-# 💡 핵심: 세분화된 마스터 서비스들을 임포트
 from services import mst_entity_service, mst_object_service, mst_status_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/core", tags=["Master Data Control"])
 
+def get_target_language(
+    accept_language: Optional[str] = Header(None),
+    x_target_language: Optional[str] = Header(None)
+) -> str:
+    if x_target_language:
+        return x_target_language
+        
+    if accept_language:
+        primary_lang = accept_language.split(',')[0].split('-')[0].lower()
+        if primary_lang == 'ja':
+            return "Japanese"
+        elif primary_lang == 'ko':
+            return "Korean"
+        elif primary_lang == 'en':
+            return "English"
+            
+    return "Korean"
+
 # ----- Status Master API -----
 @router.get("/statuses/options", response_model=MstStatusOptionsResponse)
-def get_status_options(category: str, db: Session = Depends(get_db)):
-    return mst_status_service.get_active_status_options(category, db)
+def get_status_options(category: str, db: Session = Depends(get_db), target_lang: str = Depends(get_target_language)):
+    return mst_status_service.get_active_status_options(category, db, target_lang)
 
 @router.get("/statuses", response_model=MstStatusListResponse)
-def get_statuses(page: int = 1, limit: int = 20, category_filter: Optional[str] = None, search_conditions: Optional[str] = None, db: Session = Depends(get_db)):
-    return mst_status_service.get_mst_statuses(db, page, limit, category_filter, search_conditions)
+def get_statuses(page: int = 1, limit: int = 20, category_filter: Optional[str] = None, search_conditions: Optional[str] = None, db: Session = Depends(get_db), target_lang: str = Depends(get_target_language)):
+    return mst_status_service.get_mst_statuses(db, page, limit, category_filter, search_conditions, target_lang)
 
 @router.post("/statuses", response_model=SaveSummaryResponse)
 def create_status(request: CreateMstStatusRequest, db: Session = Depends(get_db)):
@@ -56,8 +73,8 @@ def get_entity_types(db: Session = Depends(get_db)):
     return mst_entity_service.get_mst_entity_types(db)
 
 @router.get("/entities", response_model=MstEntityListResponse)
-def get_entities(page: int = 1, limit: int = 20, type_filter: Optional[str] = None, search_conditions: Optional[str] = None, db: Session = Depends(get_db)):
-    return mst_entity_service.get_mst_entities(db, page, limit, type_filter, search_conditions)
+def get_entities(page: int = 1, limit: int = 20, type_filter: Optional[str] = None, search_conditions: Optional[str] = None, db: Session = Depends(get_db), target_lang: str = Depends(get_target_language)):
+    return mst_entity_service.get_mst_entities(db, page, limit, type_filter, search_conditions, target_lang)
 
 @router.post("/entities", response_model=SaveSummaryResponse)
 def create_entity(request: CreateMstEntityRequest, db: Session = Depends(get_db)):
@@ -90,8 +107,8 @@ def get_object_types(db: Session = Depends(get_db)):
     return mst_object_service.get_mst_object_types(db)
 
 @router.get("/objects", response_model=MstObjectListResponse)
-def get_objects(page: int = 1, limit: int = 20, type_filter: Optional[str] = None, search_conditions: Optional[str] = None, db: Session = Depends(get_db)):
-    return mst_object_service.get_mst_objects(db, page, limit, type_filter, search_conditions)
+def get_objects(page: int = 1, limit: int = 20, type_filter: Optional[str] = None, search_conditions: Optional[str] = None, db: Session = Depends(get_db), target_lang: str = Depends(get_target_language)):
+    return mst_object_service.get_mst_objects(db, page, limit, type_filter, search_conditions, target_lang)
 
 @router.post("/objects", response_model=SaveSummaryResponse)
 def create_object(request: CreateMstObjectRequest, db: Session = Depends(get_db)):

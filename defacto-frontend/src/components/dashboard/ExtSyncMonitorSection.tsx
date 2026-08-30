@@ -2,14 +2,17 @@
 
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { RefreshCw, Play, CheckCircle, XCircle, ArrowRightLeft } from 'lucide-react';
 import { getExtSyncHistory, forceExtSync, getSchedulerConfig, updateSchedulerConfig } from '@/lib/api/pipeline';
 import { ExtSyncHistoryItem } from '@/types/api';
+import useLocaleFormatter from '@/hooks/useLocaleFormatter';
 
 export default function ExtSyncMonitorSection() {
+  const t = useTranslations('Dashboard');
   const queryClient = useQueryClient();
+  const { formatTimeOnly } = useLocaleFormatter();
 
-  // 💡 [결함 수정] isError 상태를 추가로 받아와 백엔드 통신 실패 시 UI 붕괴를 방어합니다.
   const { data: history, isLoading, isError } = useQuery({
     queryKey: ['extSyncHistory'],
     queryFn: () => getExtSyncHistory(5),
@@ -52,24 +55,18 @@ export default function ExtSyncMonitorSection() {
     }
   };
 
-  const formatTime = (iso: string) => {
-    if (!iso) return '-';
-    const d = new Date(iso);
-    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  };
-
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col h-full min-h-[350px]">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-          <ArrowRightLeft className="w-5 h-5 text-emerald-600" /> 외부 데이터 동기화 모니터 (EXT Sync)
+          <ArrowRightLeft className="w-5 h-5 text-emerald-600" /> {t('ext_sync')}
         </h2>
         <button 
           onClick={() => forceMut.mutate()} 
           disabled={forceMut.isPending} 
           className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 px-4 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 shadow-sm"
         >
-          {forceMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Play className="w-4 h-4" />} 즉시 강제 수집
+          {forceMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Play className="w-4 h-4" />} {t('ext_force_sync')}
         </button>
       </div>
 
@@ -79,24 +76,24 @@ export default function ExtSyncMonitorSection() {
           <span className={`relative inline-flex rounded-full h-2 w-2 ${isPaused ? 'bg-yellow-500' : 'bg-emerald-500'}`}></span>
         </div>
         <span className={`text-sm font-extrabold ${isPaused ? 'text-yellow-700' : 'text-gray-700'}`}>
-          {isPaused ? '백그라운드 마이크로 배치 일시정지됨' : '백그라운드 마이크로 배치 스케줄러 가동 중'}
+          {isPaused ? t('ext_paused') : t('ext_running')}
         </span>
         
         <div className="ml-auto flex items-center gap-2">
-          <label className="text-xs font-bold text-gray-500">상태 제어:</label>
+          <label className="text-xs font-bold text-gray-500">{t('ext_status_ctrl')}</label>
           <select 
             value={dropdownValue}
             onChange={handleIntervalChange}
             disabled={updateIntervalMut.isPending}
             className={`text-xs font-bold px-2 py-1 border rounded shadow-sm outline-none focus:ring-1 cursor-pointer disabled:opacity-50 transition-colors ${isPaused ? 'text-yellow-800 bg-yellow-100 border-yellow-300 focus:ring-yellow-500' : 'text-emerald-700 bg-white border-emerald-200 focus:ring-emerald-500'}`}
           >
-            <option value={1}>1분 주기</option>
-            <option value={5}>5분 주기</option>
-            <option value={10}>10분 주기 (기본)</option>
-            <option value={30}>30분 주기</option>
-            <option value={60}>1시간 주기</option>
+            <option value={1}>{t('ext_1min')}</option>
+            <option value={5}>{t('ext_5min')}</option>
+            <option value={10}>{t('ext_10min')}</option>
+            <option value={30}>{t('ext_30min')}</option>
+            <option value={60}>{t('ext_60min')}</option>
             <option disabled>──────────</option>
-            <option value={0}>⏸️ 일시정지</option>
+            <option value={0}>{t('ext_pause_btn')}</option>
           </select>
         </div>
       </div>
@@ -105,31 +102,29 @@ export default function ExtSyncMonitorSection() {
         {isLoading ? (
           <div className="flex justify-center items-center h-40"><RefreshCw className="w-6 h-6 animate-spin text-emerald-500" /></div>
         ) : isError ? (
-          <div className="flex justify-center items-center h-40 text-sm font-bold text-red-400">데이터를 불러오는 데 실패했습니다. 서버 상태를 확인해주세요.</div>
+          <div className="flex justify-center items-center h-40 text-sm font-bold text-red-400">{t('ext_load_fail')}</div>
         ) : !history || history.length === 0 ? (
-          <div className="flex justify-center items-center h-40 text-sm font-bold text-gray-400">아직 동기화 이력이 없습니다.</div>
+          <div className="flex justify-center items-center h-40 text-sm font-bold text-gray-400">{t('ext_no_history')}</div>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">시작 시간</th>
-                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">유형</th>
-                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">수집 건수</th>
-                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">상태</th>
+                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">{t('ext_col_time')}</th>
+                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">{t('ext_col_type')}</th>
+                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">{t('ext_col_count')}</th>
+                <th className="py-2.5 px-4 font-extrabold text-gray-500 uppercase text-[10px]">{t('ext_col_status')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {/* 💡 [결함 수정] 백엔드에서 500 에러를 반환하여 history가 undefined일 때 
-                  발생하던 map 함수 TypeError 붕괴를 원천 차단했습니다. */}
               {history.map((item: ExtSyncHistoryItem) => (
                 <tr key={item.sync_id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-xs text-gray-600">{formatTime(item.start_ts)}</td>
+                  <td className="py-3 px-4 font-mono font-bold text-xs text-gray-600">{formatTimeOnly(item.start_ts)}</td>
                   <td className="py-3 px-4">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.sync_type === 'AUTO' ? 'bg-gray-100 text-gray-600' : 'bg-emerald-100 text-emerald-700'}`}>
                       {item.sync_type}
                     </span>
                   </td>
-                  <td className="py-3 px-4 font-bold text-gray-800">{item.records_fetched}건</td>
+                  <td className="py-3 px-4 font-bold text-gray-800">{item.records_fetched}</td>
                   <td className="py-3 px-4">
                     {item.status === 'SUCCESS' && <span className="flex items-center gap-1 text-[10px] font-bold text-green-600"><CheckCircle className="w-3 h-3"/> SUCCESS</span>}
                     {item.status === 'RUNNING' && <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600"><RefreshCw className="w-3 h-3 animate-spin"/> RUNNING</span>}

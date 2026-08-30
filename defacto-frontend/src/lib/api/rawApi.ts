@@ -1,5 +1,4 @@
-import axios from 'axios';
-const apiClient = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080', headers: { 'Content-Type': 'application/json' } });
+import { apiClient } from './client';
 
 export const createRawEvent = async (data: { base_entity_id: number; event_date: string; raw_content: string; run_pipeline_now: boolean; schema_name: string; }) => {
   const response = await apiClient.post('/api/v1/core/raw-events', { ...data, base_entity_id: data.base_entity_id || 1024 });

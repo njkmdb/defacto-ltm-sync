@@ -14,3 +14,16 @@ class ActionItem(BaseModel):
 class SaveSummaryResponse(BaseModel):
     status: str
     message: str
+
+class SystemConfigResponse(BaseModel):
+    status: str
+    use_bigquery: bool
+
+# 👇 [추가된 부분] 동적 설정 관리를 위한 스키마
+class SystemSettingsResponse(BaseModel):
+    api_key: str
+    model_name: str
+
+class UpdateSystemSettingsRequest(BaseModel):
+    api_key: str
+    model_name: str

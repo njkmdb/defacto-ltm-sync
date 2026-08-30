@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, X } from 'lucide-react';
@@ -14,6 +15,7 @@ interface SortableStepItemProps {
 }
 
 export default function SortableStepItem({ step, isSelected, onSelect, onRemove }: SortableStepItemProps) {
+  const t = useTranslations('Builder');
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: step.step_id });
 
   const style = {
@@ -40,7 +42,7 @@ export default function SortableStepItem({ step, isSelected, onSelect, onRemove 
 
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-bold text-gray-900 truncate">{step.module_name}</h3>
-        <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">Output: {step.output_key}</p>
+        <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{t('item_output')}: {step.output_key}</p>
       </div>
 
       <button onClick={onRemove} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0">

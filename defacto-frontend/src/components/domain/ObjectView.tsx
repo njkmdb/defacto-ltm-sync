@@ -2,13 +2,14 @@
 
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import Papa from 'papaparse';
 import { Search, Plus, Trash2, Download, UploadCloud, XCircle, ChevronLeft, ChevronRight, RefreshCw, X, AlertCircle, Database, Save, Box } from 'lucide-react';
 import { getObjects, createObject, updateObject, deleteBulkObjects, getObjectTypes, bulkUpsertObjects, getStatusOptions } from '@/lib/api/master';
+import DomainSearchConditions, { SearchCondition } from './DomainSearchConditions';
+import DomainDataTable from './DomainDataTable';
+import DomainModals from './DomainModals';
 
-type SearchCondition = { id: number; target: string; keyword: string; operator: 'AND' | 'OR'; };
-
-// 💡 [결함 수정] Pagination Windowing Helper 적용
 const getPageNumbers = (current: number, total: number) => {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
   if (current <= 3) return [1, 2, 3, 4, 5];
@@ -17,6 +18,8 @@ const getPageNumbers = (current: number, total: number) => {
 };
 
 export default function ObjectView() {
+  const t = useTranslations('Domain');
+  const tCommon = useTranslations('Common');
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,12 +43,12 @@ export default function ObjectView() {
   const { data: objectsData, isLoading } = useQuery({ queryKey: ['objects', page, limit, typeFilter, appliedConditions], queryFn: () => getObjects(page, limit, typeFilter, appliedConditions) });
 
   const handleSuccess = (msg: string) => { alert(msg); setIsModalOpen(false); setIsPreviewOpen(false); queryClient.invalidateQueries({ queryKey: ['objects'] }); queryClient.invalidateQueries({ queryKey: ['objectTypes'] }); };
-  const handleError = (err: any) => alert(err.response?.data?.detail || "오류 발생");
+  const handleError = (err: any) => alert(err.response?.data?.detail || "Error");
 
-  const createMut = useMutation({ mutationFn: createObject, onSuccess: () => handleSuccess("저장 성공"), onError: handleError });
-  const updateMut = useMutation({ mutationFn: ({ id, data }: { id: number, data: any }) => updateObject(id, data), onSuccess: () => handleSuccess("수정 성공"), onError: handleError });
-  const bulkDeleteMut = useMutation({ mutationFn: deleteBulkObjects, onSuccess: () => { handleSuccess("일괄 삭제 성공"); setSelectedIds([]); }, onError: handleError });
-  const bulkUpsertMut = useMutation({ mutationFn: bulkUpsertObjects, onSuccess: () => handleSuccess("일괄 주입 성공"), onError: handleError });
+  const createMut = useMutation({ mutationFn: createObject, onSuccess: () => handleSuccess(t('alert_save_success')), onError: handleError });
+  const updateMut = useMutation({ mutationFn: ({ id, data }: { id: number, data: any }) => updateObject(id, data), onSuccess: () => handleSuccess(t('alert_update_success')), onError: handleError });
+  const bulkDeleteMut = useMutation({ mutationFn: deleteBulkObjects, onSuccess: () => { handleSuccess(t('alert_bulk_del_success')); setSelectedIds([]); }, onError: handleError });
+  const bulkUpsertMut = useMutation({ mutationFn: bulkUpsertObjects, onSuccess: () => handleSuccess(t('alert_bulk_upsert_success')), onError: handleError });
 
   const currentFilterTypes = objectTypesData?.data || [];
   const currentMeta = objectsData?.meta;
@@ -86,7 +89,7 @@ export default function ObjectView() {
   };
 
   const handleSave = () => {
-    if (!formData.name.trim() || !formData.type.trim()) return alert("이름과 타입은 필수입니다.");
+    if (!formData.name.trim() || !formData.type.trim()) return alert(t('alert_name_type_req'));
     const finalAttributes: Record<string, any> = {};
     formData.attributes.forEach(a => { if (a.key.trim()) finalAttributes[a.key.trim()] = a.value; });
     const aliasList = formData.aliases.split(',').map(s => s.trim()).filter(Boolean);
@@ -102,105 +105,72 @@ export default function ObjectView() {
         <div className="flex items-center justify-between border-b border-gray-100 pb-4">
           <div className="flex items-center gap-6">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Search className="w-4 h-4"/> 퀵 필터</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Search className="w-4 h-4"/> {t('filter_quick')}</label>
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 h-10 outline-none">
-                <option value="ALL">모든 타입 보기</option>{currentFilterTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                <option value="ALL">{t('filter_all_types')}</option>{currentFilterTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            {(typeFilter !== 'ALL' || appliedConditions.length > 0) && <div className="pt-7"><button onClick={() => { setTypeFilter('ALL'); setConditions([{ id: Date.now(), target: 'NAME', keyword: '', operator: 'AND' }]); setAppliedConditions([]); }} className="px-4 h-10 text-red-500 hover:bg-red-50 rounded-lg font-bold text-sm"><XCircle className="w-4 h-4 inline" /> 초기화</button></div>}
+            {(typeFilter !== 'ALL' || appliedConditions.length > 0) && <div className="pt-7"><button onClick={() => { setTypeFilter('ALL'); setConditions([{ id: Date.now(), target: 'NAME', keyword: '', operator: 'AND' }]); setAppliedConditions([]); }} className="px-4 h-10 text-red-500 hover:bg-red-50 rounded-lg font-bold text-sm flex items-center gap-1"><XCircle className="w-4 h-4" /> {t('filter_reset')}</button></div>}
           </div>
           <div className="flex items-center gap-3 mt-7">
             {selectedIds.length === 0 ? (
-              <><input type="file" ref={fileInputRef} accept=".csv, .tsv" onChange={handleFileUpload} className="hidden" /><button onClick={() => fileInputRef.current?.click()} className="bg-blue-600 text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold"><UploadCloud className="w-4 h-4 inline" /> 주입</button><button onClick={() => { setSelectedId(null); setFormData({ id: '', name: '', type: '', parent_id: '', status_id: 1, aliases: '', attributes: [], ne_ts: '', up_ts: '' }); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold"><Plus className="w-4 h-4 inline" /> 등록</button></>
+              <>
+                <input type="file" ref={fileInputRef} accept=".csv, .tsv" onChange={handleFileUpload} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 hover:bg-emerald-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5"><UploadCloud className="w-4 h-4" /> {t('btn_upload')}</button>
+                <button onClick={() => { setSelectedId(null); setFormData({ id: '', name: '', type: '', parent_id: '', status_id: 1, aliases: '', attributes: [], ne_ts: '', up_ts: '' }); setIsModalOpen(true); }} className="bg-emerald-600 hover:bg-emerald-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-md flex items-center gap-1.5"><Plus className="w-4 h-4" /> {t('btn_register')}</button>
+              </>
             ) : (
-              <><button onClick={handleExport} className="bg-purple-600 text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold"><Download className="w-4 h-4 inline" /> 추출 ({selectedIds.length})</button><button onClick={() => confirm("일괄 삭제하시겠습니까?") && bulkDeleteMut.mutate(selectedIds)} disabled={bulkDeleteMut.isPending} className="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 h-10 rounded-lg font-bold"><Trash2 className="w-4 h-4 inline" /> 삭제 ({selectedIds.length})</button></>
+              <>
+                <button onClick={handleExport} className="bg-gray-800 text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5 hover:bg-black transition-colors"><Download className="w-4 h-4" /> {t('btn_export', { count: selectedIds.length })}</button>
+                <button onClick={() => confirm(t('confirm_bulk_delete')) && bulkDeleteMut.mutate(selectedIds)} disabled={bulkDeleteMut.isPending} className="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 h-10 rounded-lg font-bold shadow-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"><Trash2 className="w-4 h-4" /> {t('btn_delete', { count: selectedIds.length })}</button>
+              </>
             )}
           </div>
         </div>
         
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <label className="block text-sm font-extrabold text-gray-700 mb-3 flex items-center gap-2"><Search className="w-4 h-4 text-emerald-600"/> 다중 조건 상세 검색</label>
-          <div className="flex flex-col gap-3">
-            {conditions.map((cond, idx) => (
-              <div key={cond.id} className="flex items-center gap-2 flex-wrap">
-                {idx > 0 ? <select value={cond.operator} onChange={(e) => setConditions(conditions.map(c => c.id === cond.id ? { ...c, operator: e.target.value as 'AND'|'OR' } : c))} className="text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5 w-20 text-center"><option value="AND">AND</option><option value="OR">OR</option></select> : <span className="w-20 text-center text-xs font-bold text-gray-400 bg-gray-200 rounded-md py-2">WHERE</span>}
-                <select value={cond.target} onChange={(e) => setConditions(conditions.map(c => c.id === cond.id ? { ...c, target: e.target.value } : c))} className="text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5 w-40"><option value="NAME">Name</option><option value="ID">ID</option><option value="TYPE">Type</option><option value="PARENT">Parent</option><option value="ATTRIBUTES">Attributes</option></select>
-                <input type="text" value={cond.keyword} onChange={(e) => setConditions(conditions.map(c => c.id === cond.id ? { ...c, keyword: e.target.value } : c))} onKeyDown={(e) => e.key === 'Enter' && setAppliedConditions([...conditions])} className="px-3 py-1.5 text-sm border border-gray-300 bg-white rounded-md w-[27rem] font-medium" />
-                {conditions.length > 1 && <button onClick={() => setConditions(conditions.filter(c => c.id !== cond.id))} className="text-gray-400 hover:text-red-500 p-1.5"><X className="w-4 h-4" /></button>}
-                {idx === conditions.length - 1 && (
-                  <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
-                    <button onClick={() => setConditions([...conditions, { id: Date.now(), target: 'NAME', keyword: '', operator: 'AND' }])} className="text-xs font-bold text-gray-600 bg-white border px-3 py-1.5 rounded-md"><Plus className="w-3 h-3 inline" /> AND</button>
-                    <button onClick={() => setConditions([...conditions, { id: Date.now(), target: 'NAME', keyword: '', operator: 'OR' }])} className="text-xs font-bold text-gray-600 bg-white border px-3 py-1.5 rounded-md"><Plus className="w-3 h-3 inline" /> OR</button>
-                    <button onClick={() => setAppliedConditions([...conditions])} className="bg-emerald-600 text-white px-4 py-1.5 rounded-md text-sm font-bold"><Search className="w-4 h-4 inline" /> 검색</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <DomainSearchConditions activeTab="OBJECT" conditions={conditions} setConditions={setConditions} onSearch={() => {setPage(1); setAppliedConditions([...conditions]);}} />
       </div>
 
       <div className="w-full overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">
-        {isLoading ? <div className="flex justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-emerald-500" /></div> : currentDataList.length === 0 ? <p className="text-center text-gray-400 font-bold py-20">데이터가 없습니다.</p> : (
-          <table className="w-full text-left whitespace-nowrap">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="p-3 w-12 text-center"><input type="checkbox" checked={selectedIds.length === currentDataList.length && currentDataList.length > 0} onChange={toggleSelectAll} className="w-4 h-4 rounded text-emerald-600" /></th>
-                <th className="p-3 text-xs font-extrabold text-gray-500 uppercase">ID</th>
-                <th className="p-3 text-xs font-extrabold text-gray-500 uppercase">Type</th>
-                <th className="p-3 text-xs font-extrabold text-gray-500 uppercase">Name</th>
-                <th className="p-3 text-xs font-extrabold text-gray-500 uppercase">Parent</th>
-                <th className="p-3 text-xs font-extrabold text-gray-500 uppercase">Status ID</th>
-                <th className="p-3 text-xs font-extrabold text-gray-500 uppercase">Attributes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {currentDataList.map((row: any) => (
-                <tr key={row.object_id} onClick={() => toggleSelect(row.object_id)} onDoubleClick={() => {
-                  const aliases = Array.isArray(row.attributes?.aliases) ? row.attributes.aliases.join(', ') : '';
-                  const attrs = Object.entries(row.attributes || {}).filter(([k]) => k !== 'aliases').map(([k, v]) => ({ key: k, value: String(v) }));
-                  setSelectedId(row.object_id); setFormData({ id: row.object_id, name: row.object_name, type: row.object_type, parent_id: row.parent_object_id || '', status_id: row.object_status_id || 1, aliases, attributes: attrs, ne_ts: row.ne_ts, up_ts: row.up_ts });
-                  setIsModalOpen(true);
-                }} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.includes(row.object_id) ? 'bg-emerald-50/50' : ''}`}>
-                  <td className="p-3 text-center" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(row.object_id)} onChange={() => toggleSelect(row.object_id)} className="w-4 h-4 rounded text-emerald-600" /></td>
-                  <td className="p-3 text-sm font-bold text-gray-700">{row.object_id}</td>
-                  <td className="p-3"><span className="text-[10px] font-bold border px-2 py-1 rounded">{row.object_type}</span></td>
-                  <td className="p-3 text-sm font-bold text-gray-900">{row.object_name}</td>
-                  <td className="p-3 text-sm font-medium text-gray-500">{row.parent_object_id || '-'}</td>
-                  <td className="p-3 text-sm font-bold text-gray-600 text-center">{row.object_status_id}</td>
-                  <td className="p-3 text-xs font-mono text-gray-500 truncate max-w-[200px]">{!row.attributes || Object.keys(row.attributes).length===0 ? '-' : Object.entries(row.attributes).map(([k,v])=>`${k}:${v}`).join(' | ')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DomainDataTable 
+           activeTab="OBJECT" isLoading={isLoading} currentDataList={currentDataList}
+           selectedIds={selectedIds} toggleSelectAll={toggleSelectAll} toggleSelect={toggleSelect}
+           openEditModal={(row: any) => {
+              const aliases = Array.isArray(row.attributes?.aliases) ? row.attributes.aliases.join(', ') : '';
+              const attrs = Object.entries(row.attributes || {}).filter(([k]) => k !== 'aliases').map(([k, v]) => ({ key: k, value: String(v) }));
+              setSelectedId(row.object_id); setFormData({ id: row.object_id, name: row.object_name, type: row.object_type, parent_id: row.parent_object_id || '', status_id: row.object_status_id || 1, aliases, attributes: attrs, ne_ts: row.ne_ts, up_ts: row.up_ts });
+              setIsModalOpen(true);
+           }}
+        />
       </div>
 
       {currentMeta && (
         <div className="p-4 mt-6 border border-gray-200 bg-white shadow-sm rounded-xl flex items-center justify-between">
-          <span className="text-sm font-bold text-gray-500 pl-2">총 {currentMeta.total_count} 건</span>
+          <span className="text-sm font-bold text-gray-500 pl-2">{t('total_count', { count: currentMeta.total_count })}</span>
           <div className="flex items-center gap-2">
             <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
-            <div className="flex gap-1">{getPageNumbers(page, currentMeta.total_pages).map(p => <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg text-sm font-bold ${page === p ? 'bg-emerald-600 text-white' : 'hover:bg-gray-100'}`}>{p}</button>)}</div>
+            <div className="flex gap-1">{getPageNumbers(page, currentMeta.total_pages).map(p => <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg text-sm font-bold ${page === p ? 'bg-emerald-600 text-white shadow-sm' : 'hover:bg-gray-100 text-gray-600'}`}>{p}</button>)}</div>
             <button disabled={page >= currentMeta.total_pages} onClick={() => setPage(p => p + 1)} className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }} className="bg-white border rounded-lg px-2 py-1.5 outline-none font-bold text-sm"><option value={10}>10개</option><option value={20}>20개</option><option value={50}>50개</option></select>
+          <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }} className="bg-white border rounded-lg px-2 py-1.5 outline-none font-bold text-sm cursor-pointer shadow-sm text-gray-700">
+             <option value={10}>{t('view_10')}</option>
+             <option value={20}>{t('view_20')}</option>
+             <option value={50}>{t('view_50')}</option>
+          </select>
         </div>
       )}
 
-      {/* 미리보기 모달 */}
-      {isPreviewOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-2xl w-[1200px] h-[85vh] flex flex-col overflow-hidden"><div className="p-6 border-b bg-blue-50/50 flex justify-between"><div><h2 className="text-xl font-extrabold flex items-center gap-2"><UploadCloud className="w-6 h-6 text-blue-600" /> 객체(Object) 일괄 주입</h2></div><button onClick={() => setIsPreviewOpen(false)}><X className="w-6 h-6"/></button></div><div className="flex-1 overflow-auto p-6 bg-gray-50/50">{previewErrors > 0 && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm font-bold"><AlertCircle className="w-5 h-5 inline" /> 불량 레코드가 {previewErrors}건 존재합니다.</div>}<table className="w-full text-left bg-white text-sm"><thead className="bg-gray-100 text-gray-500"><tr><th className="p-3">Row</th><th className="p-3">ID</th><th className="p-3">Type</th><th className="p-3">Name</th><th className="p-3">Parent</th></tr></thead><tbody>{previewData.map((row, i) => <tr key={i} className={row.hasError ? 'bg-red-50/50' : 'hover:bg-gray-50'}><td className="p-3">{row.index}</td><td className="p-3">{row.id || '자동'}</td><td className="p-3">{row.type || '누락'}</td><td className="p-3">{row.name || '누락'}</td><td className="p-3">{row.parent_id || '-'}</td></tr>)}</tbody></table></div><div className="p-6 border-t flex justify-end gap-3"><button onClick={() => setIsPreviewOpen(false)} className="px-6 py-2.5 bg-gray-100 rounded-lg font-semibold">취소</button><button onClick={() => previewErrors === 0 && bulkUpsertMut.mutate(previewData.map(item => ({ object_id: item.id, object_type: item.type.toUpperCase(), object_name: item.name, parent_object_id: item.parent_id, attributes: item.attributes })))} disabled={previewErrors > 0 || bulkUpsertMut.isPending} className="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-bold"><Database className="w-5 h-5 inline"/> 최종 주입 확정</button></div></div>
-        </div>
-      )}
-
-      {/* 등록/편집 모달 */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-2xl w-[600px] max-h-[90vh] overflow-y-auto"><div className="flex justify-between mb-6 border-b pb-4"><h2 className="text-2xl font-extrabold">{selectedId ? '객체 마스터 수정' : '객체 등록'}</h2><button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6"/></button></div><div className="space-y-6"><div className="grid grid-cols-3 gap-6"><div><label className="block text-sm font-bold mb-1">ID</label><input type="number" value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} placeholder="자동발급" className="w-full border rounded-lg px-3 py-2 text-sm" /></div><div><label className="block text-sm font-bold mb-1">타입 *</label><input type="text" list="type-options" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm uppercase" /><datalist id="type-options">{currentFilterTypes.map((t: string) => <option key={t} value={t} />)}</datalist></div><div><label className="block text-sm font-bold mb-1">상위 ID</label><input type="number" value={formData.parent_id} onChange={e => setFormData({...formData, parent_id: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" /></div></div><div><label className="block text-sm font-bold mb-1">이름 *</label><input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-base font-bold" /></div><div className="bg-emerald-50/50 p-4 rounded-xl"><label className="block text-sm font-bold mb-2">상태 ID</label><select value={formData.status_id} onChange={e => setFormData({...formData, status_id: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm">{statusOptionsData?.data?.map((s:any) => <option key={s.status_id} value={s.status_id}>{s.status_id} - {s.status_name}</option>)}{!statusOptionsData?.data?.some((s:any)=>s.status_id===1) && <option value={1}>1 - SYNCED</option>}</select></div><div><label className="block text-sm font-bold mb-1">검색 별칭 (콤마 구분)</label><input type="text" value={formData.aliases} onChange={e => setFormData({...formData, aliases: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" /></div><div className="border rounded-xl p-5"><div className="flex justify-between mb-4"><h3 className="text-sm font-extrabold">속성 (JSONB)</h3><button onClick={() => setFormData({...formData, attributes: [...formData.attributes, {key:'', value:''}]})} className="text-xs font-bold bg-gray-100 px-2 py-1 rounded">추가</button></div><div className="space-y-3">{formData.attributes.map((attr, idx) => <div key={idx} className="flex gap-2"><input type="text" value={attr.key} onChange={e => { const n = [...formData.attributes]; n[idx].key = e.target.value; setFormData({...formData, attributes: n}); }} className="w-1/3 border rounded px-2" placeholder="Key"/><input type="text" value={attr.value} onChange={e => { const n = [...formData.attributes]; n[idx].value = e.target.value; setFormData({...formData, attributes: n}); }} className="flex-1 border rounded px-2" placeholder="Value"/><button onClick={() => setFormData({...formData, attributes: formData.attributes.filter((_, i) => i !== idx)})} className="p-1"><X className="w-4 h-4"/></button></div>)}</div></div></div><div className="mt-6 pt-4 border-t flex justify-end gap-3"><button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-gray-100 rounded-lg font-semibold">취소</button><button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-bold"><Save className="w-4 h-4"/> 저장</button></div></div>
-        </div>
-      )}
+      <DomainModals 
+        activeTab="OBJECT"
+        isPreviewOpen={isPreviewOpen} setIsPreviewOpen={setIsPreviewOpen}
+        previewData={previewData} previewErrors={previewErrors}
+        handleBulkUpsertConfirm={() => { if(previewErrors === 0) bulkUpsertMut.mutate(previewData.map(item => ({ object_id: item.id, object_type: item.type.toUpperCase(), object_name: item.name, parent_object_id: item.parent_id, attributes: item.attributes }))); }}
+        isPending={bulkUpsertMut.isPending || createMut.isPending || updateMut.isPending}
+        isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen}
+        selectedId={selectedId} formData={formData} setFormData={setFormData}
+        handleSave={handleSave} handleDeleteStatus={() => {}} deleteStatusMutPending={false}
+        currentFilterTypes={currentFilterTypes} statusOptionsData={statusOptionsData}
+      />
     </>
   );
 }

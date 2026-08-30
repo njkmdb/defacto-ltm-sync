@@ -22,3 +22,8 @@ export interface MediaUploadResponse {
   source_id: number;
   file_url: string;
 }
+
+export interface SystemConfigResponse {
+  status: string;
+  use_bigquery: boolean;
+}

@@ -1,10 +1,5 @@
-import axios from 'axios';
+import { apiClient } from './client';
 import { PromptListResponse, SavePromptRequest } from '@/types/api';
-
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080',
-  headers: { 'Content-Type': 'application/json' },
-});
 
 export const getDefaultPrompts = async () => {
   const response = await apiClient.get('/api/v1/core/prompts/defaults');

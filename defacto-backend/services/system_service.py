@@ -1,3 +1,4 @@
+import os
 import logging
 import math
 import json
@@ -7,8 +8,11 @@ from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
-# 💡 보안을 위해 조회 허용 스키마 명시 (Whitelist)
 ALLOWED_SCHEMAS = ["core", "domain", "ext", "raw"]
+
+def get_system_config():
+    use_bq = str(os.getenv("USE_BIGQUERY", "False")).lower() == "true"
+    return {"status": "success", "use_bigquery": use_bq}
 
 def get_tables(schema_name: str, db: Session):
     if schema_name not in ALLOWED_SCHEMAS:
@@ -28,7 +32,6 @@ def get_table_data(schema_name: str, table_name: str, page: int, limit: int, sea
     if schema_name not in ALLOWED_SCHEMAS:
         raise HTTPException(status_code=400, detail="허용되지 않은 스키마입니다.")
         
-    # 💡 1차 검증: 테이블 존재 여부 확인
     check_query = text("""
         SELECT EXISTS (
             SELECT 1 
@@ -43,7 +46,6 @@ def get_table_data(schema_name: str, table_name: str, page: int, limit: int, sea
 
     offset = (page - 1) * limit
     
-    # 💡 SQLAlchemy MetaData를 이용해 테이블 구조를 동적으로 읽어옵니다 (Identifier 안전 바인딩)
     try:
         metadata = MetaData(schema=schema_name)
         target_table = Table(table_name, metadata, autoload_with=db.get_bind())
@@ -54,7 +56,6 @@ def get_table_data(schema_name: str, table_name: str, page: int, limit: int, sea
     count_query = select(func.count()).select_from(target_table)
     data_query = select(target_table)
 
-    # 💡 다중 조건 검색 (Multi-condition Search) 동적 쿼리 바인딩
     if search_conditions:
         try:
             conds = json.loads(search_conditions)
@@ -96,11 +97,10 @@ def get_table_data(schema_name: str, table_name: str, page: int, limit: int, sea
         row_dict = {}
         for idx, col in enumerate(columns):
             val = row[idx]
-            # JSON 직렬화 불가 객체 처리 (예: datetime, vector)
             if hasattr(val, 'isoformat'):
                 val = val.isoformat()
             elif hasattr(val, '__iter__') and not isinstance(val, (str, dict, list)):
-                val = str(val) # Vector 등은 배열 문자열로 변환
+                val = str(val) 
             row_dict[col] = val
         rows.append(row_dict)
         
@@ -119,3 +119,32 @@ def get_table_data(schema_name: str, table_name: str, page: int, limit: int, sea
             "limit": limit
         }
     }
+
+# 👇 [추가된 부분] 동적 설정 파일 관리 로직
+SETTINGS_PATH = os.path.join(os.getcwd(), "config_dynamic.json")
+
+def get_dynamic_settings() -> dict:
+    if os.path.exists(SETTINGS_PATH):
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read dynamic settings: {e}")
+            
+    # 설정 파일이 없으면 기존처럼 .env에서 읽어와 Fallback
+    return {
+        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
+        "MODEL_NAME": os.getenv("MODEL_NAME", "gemini-2.5-flash")
+    }
+
+def update_dynamic_settings(api_key: str, model_name: str) -> dict:
+    settings = {
+        "GEMINI_API_KEY": api_key,
+        "MODEL_NAME": model_name
+    }
+    try:
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(settings, f, ensure_ascii=False, indent=2)
+        return {"status": "success", "message": "System settings updated successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save settings: {e}")

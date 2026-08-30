@@ -26,12 +26,10 @@ logger = logging.getLogger(__name__)
 LRSE_URL = os.getenv("LRSE_URL")
 SESSION_ID = os.getenv("SESSION_ID")
 SESSION_SECRET = os.getenv("SESSION_SECRET")
-API_KEY = os.getenv("GEMINI_API_KEY") 
-MODEL_NAME = os.getenv("MODEL_NAME")
 
 async def search_memory_explorer(request: MemorySearchRequest, db: Session) -> MemorySearchResponse:
     try:
-        embedding_service = EmbeddingService(api_key=API_KEY)
+        embedding_service = EmbeddingService() # 💡 강제 주입 해제
         query_vector = await embedding_service.get_embedding(request.query_text)
         rag_service = RagService(db)
         results, meta = rag_service.explore_memories(
@@ -44,9 +42,10 @@ async def search_memory_explorer(request: MemorySearchRequest, db: Session) -> M
         logger.error(f"Memory Explorer 검색 실패: {str(e)}")
         raise Exception(f"기억 탐색 중 오류가 발생했습니다: {str(e)}")
 
-async def generate_event_briefing(request: GenerateBriefingRequest, db: Session) -> dict:
+async def generate_event_briefing(request: GenerateBriefingRequest, db: Session, target_lang: str = "Korean") -> dict:
     try:
-        lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET, api_key=API_KEY, model_name=MODEL_NAME)
+        # 💡 강제 주입 해제
+        lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
         memories = db.query(EventMemory).filter(
             EventMemory.memory_id.in_(request.selected_memory_ids),
             EventMemory.base_entity_id == request.base_entity_id 
@@ -61,7 +60,7 @@ async def generate_event_briefing(request: GenerateBriefingRequest, db: Session)
         index_text_joined = "\n".join(index_texts)
         index_payload = f"【선택된 기억 요약(Index)】\n{index_text_joined}\n\n【외부 정형 데이터】\n{ext_data_text}"
         
-        plan_instruction, plan_schema_cls, plan_temp, plan_max_len = get_dynamic_prompt(db, "C_PLANNING", request.base_entity_id, "AgentPlanningSchema")
+        plan_instruction, plan_schema_cls, plan_temp, plan_max_len = get_dynamic_prompt(db, "C_PLANNING", request.base_entity_id, "AgentPlanningSchema", target_lang)
         plan_result = await lrse_client.extract_fact(
             raw_content=f"【사용자 질의(목적)】\n{request.query_text}\n\n{index_payload}", target_schema_cls=plan_schema_cls, system_instruction=plan_instruction, temperature=plan_temp, max_tokens=plan_max_len
         )
@@ -79,7 +78,7 @@ async def generate_event_briefing(request: GenerateBriefingRequest, db: Session)
             additional_context_payload += f"\n\n{facts_text}"
             
         final_prompt = f"【사용자 질의(목적)】\n{request.query_text}\n\n{index_payload}\n\n【에이전트 인출 데이터】\n{additional_context_payload}"
-        synthesis_instruction, brief_schema_cls, brief_temp, brief_max_len = get_dynamic_prompt(db, "C_BRIEFING", request.base_entity_id, "EventBriefingSchema")
+        synthesis_instruction, brief_schema_cls, brief_temp, brief_max_len = get_dynamic_prompt(db, "C_BRIEFING", request.base_entity_id, "EventBriefingSchema", target_lang)
         report_data = await lrse_client.extract_fact(
             raw_content=final_prompt, target_schema_cls=brief_schema_cls, system_instruction=synthesis_instruction, temperature=brief_temp, max_tokens=brief_max_len
         )

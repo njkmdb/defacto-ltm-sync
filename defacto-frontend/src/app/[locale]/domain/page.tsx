@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Database, Search, Table2, Layers, Server, RefreshCw, ChevronLeft, ChevronRight, Hash, Plus, X, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { Database, Layers, Box, Tags, Search, Table2, Server, RefreshCw, ChevronLeft, ChevronRight, Hash, Plus, X, XCircle } from 'lucide-react';
+import EntityView from '@/components/domain/EntityView';
+import ObjectView from '@/components/domain/ObjectView';
+import StatusView from '@/components/domain/StatusView';
 import { getSystemTables, getSystemTableData } from '@/lib/api/pipeline';
 
 const getPageNumbers = (current: number, total: number) => {
@@ -12,23 +16,23 @@ const getPageNumbers = (current: number, total: number) => {
   return [current - 2, current - 1, current, current + 1, current + 2];
 };
 
-export type SearchCondition = {
+export type SystemSearchCondition = {
   id: number;
   target: string;
   keyword: string;
   operator: 'AND' | 'OR';
 };
 
-export default function SystemDataExplorerPage() {
-  const [activeSchema, setActiveSchema] = useState<'ext' | 'core' | 'domain' | 'raw'>('ext');
+function SystemDataExplorerView({ activeSchema, setActiveSchema }: { activeSchema: 'ext'|'core'|'domain'|'raw', setActiveSchema: (val: 'ext'|'core'|'domain'|'raw') => void }) {
+  const t = useTranslations('System');
+  
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
 
-  const [conditions, setConditions] = useState<SearchCondition[]>([{ id: Date.now(), target: '', keyword: '', operator: 'AND' }]);
-  const [appliedConditions, setAppliedConditions] = useState<SearchCondition[]>([]);
+  const [conditions, setConditions] = useState<SystemSearchCondition[]>([{ id: Date.now(), target: '', keyword: '', operator: 'AND' }]);
+  const [appliedConditions, setAppliedConditions] = useState<SystemSearchCondition[]>([]);
 
-  // 💡 [NEW] 상세 열람 모달을 위한 상태 추가
   const [selectedRowData, setSelectedRowData] = useState<any | null>(null);
 
   const { data: tablesData, isLoading: isTablesLoading } = useQuery({
@@ -102,35 +106,26 @@ export default function SystemDataExplorerPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8 text-gray-800 relative pb-20 flex flex-col h-screen">
-      <header className="mb-6 border-b border-gray-200 pb-4 shrink-0">
-        <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
-          <Server className="w-8 h-8 text-teal-600" /> 시스템 데이터 탐색기 (Read-Only)
-        </h1>
-        <p className="text-sm text-gray-500 mt-2">
-          로컬 데이터베이스의 ext, core, domain 스키마 내 모든 물리 테이블을 직접 열람합니다. (수정/삭제 불가)
-        </p>
-      </header>
-
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex gap-4 mb-6 shrink-0 items-center justify-between">
         <div className="flex gap-4">
           <button onClick={() => handleSchemaChange('ext')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeSchema === 'ext' ? 'bg-teal-800 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
-            <Database className="w-5 h-5" /> EXT (외부 데이터)
+            <Database className="w-5 h-5" /> {t('tab_ext')}
           </button>
           <button onClick={() => handleSchemaChange('core')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeSchema === 'core' ? 'bg-indigo-800 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
-            <Layers className="w-5 h-5" /> CORE (팩트/메모리)
+            <Layers className="w-5 h-5" /> {t('tab_core')}
           </button>
           <button onClick={() => handleSchemaChange('domain')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeSchema === 'domain' ? 'bg-emerald-800 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
-            <Server className="w-5 h-5" /> DOMAIN (마스터)
+            <Server className="w-5 h-5" /> {t('tab_domain')}
           </button>
           <button onClick={() => handleSchemaChange('raw')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeSchema === 'raw' ? 'bg-gray-800 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
-            <Hash className="w-5 h-5" /> RAW (원시 데이터)
+            <Hash className="w-5 h-5" /> {t('tab_raw')}
           </button>
         </div>
         
         {appliedConditions.length > 0 && (
           <button onClick={resetFilters} className="px-4 h-10 text-red-500 hover:bg-red-50 rounded-lg font-bold text-sm flex items-center gap-1">
-            <XCircle className="w-4 h-4" /> 검색 초기화
+            <XCircle className="w-4 h-4" /> {t('btn_reset')}
           </button>
         )}
       </div>
@@ -140,14 +135,14 @@ export default function SystemDataExplorerPage() {
         <div className="w-[280px] bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col shrink-0">
           <div className="p-4 bg-gray-50 border-b border-gray-200 shrink-0">
             <h2 className="text-sm font-extrabold text-gray-700 flex items-center gap-2 uppercase">
-              <Table2 className="w-4 h-4 text-teal-600"/> {activeSchema} TABLES
+              <Table2 className="w-4 h-4 text-teal-600"/> {activeSchema} {t('title_tables')}
             </h2>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-1">
             {isTablesLoading ? (
                <div className="py-10 flex justify-center text-teal-500"><RefreshCw className="w-6 h-6 animate-spin"/></div>
             ) : tablesData?.data?.length === 0 ? (
-               <p className="text-center text-sm font-bold text-gray-400 py-10">테이블이 없습니다.</p>
+               <p className="text-center text-sm font-bold text-gray-400 py-10">{t('empty_tables')}</p>
             ) : (
                tablesData?.data?.map((tableName: string) => (
                  <button
@@ -168,35 +163,35 @@ export default function SystemDataExplorerPage() {
           {!selectedTable ? (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
                <Database className="w-16 h-16 mb-4 text-gray-200" />
-               <p className="text-lg font-bold">좌측에서 조회할 테이블을 선택해주세요.</p>
+               <p className="text-lg font-bold">{t('empty_select')}</p>
             </div>
           ) : (
             <>
               <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center shrink-0">
                 <h3 className="font-extrabold text-lg flex items-center gap-2 text-gray-800">
-                  <Search className="w-5 h-5 text-teal-600" /> {selectedTable} 데이터
+                  <Search className="w-5 h-5 text-teal-600" /> {selectedTable} {t('title_data')}
                 </h3>
                 <div className="flex items-center gap-3">
-                  {isFetching && <span className="flex items-center gap-1.5 text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-full"><RefreshCw className="w-3.5 h-3.5 animate-spin"/> 로딩 중...</span>}
-                  <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded border border-red-100 flex items-center gap-1">🔒 Read-Only</span>
+                  {isFetching && <span className="flex items-center gap-1.5 text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-full"><RefreshCw className="w-3.5 h-3.5 animate-spin"/> {t('loading')}</span>}
+                  <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded border border-red-100 flex items-center gap-1">🔒 {t('badge_readonly')}</span>
                 </div>
               </div>
 
               {tableData?.data?.columns && (
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 m-4 shrink-0">
                   <label className="block text-sm font-extrabold text-gray-700 mb-3 flex items-center gap-2">
-                    <Search className="w-4 h-4 text-teal-600"/> 다중 조건 상세 검색
+                    <Search className="w-4 h-4 text-teal-600"/> {t('search_title')}
                   </label>
                   <div className="flex flex-col gap-3">
                     {conditions.map((cond, idx) => (
                       <div key={cond.id} className="flex items-center gap-2 flex-wrap">
                         {idx > 0 ? (
                           <select value={cond.operator} onChange={(e) => setConditions(conditions.map(c => c.id === cond.id ? { ...c, operator: e.target.value as 'AND' | 'OR' } : c))} className="text-sm font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-md px-2 py-1.5 outline-none cursor-pointer w-20 text-center shadow-sm">
-                            <option value="AND">AND</option>
-                            <option value="OR">OR</option>
+                            <option value="AND">{t('search_and')}</option>
+                            <option value="OR">{t('search_or')}</option>
                           </select>
                         ) : (
-                          <span className="w-20 text-center text-xs font-bold text-gray-400 bg-gray-200 rounded-md py-2">WHERE</span>
+                          <span className="w-20 text-center text-xs font-bold text-gray-400 bg-gray-200 rounded-md py-2">{t('search_where')}</span>
                         )}
                         
                         <select value={cond.target} onChange={(e) => setConditions(conditions.map(c => c.id === cond.id ? { ...c, target: e.target.value } : c))} className="text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5 outline-none cursor-pointer w-48 shadow-sm">
@@ -205,15 +200,15 @@ export default function SystemDataExplorerPage() {
                           ))}
                         </select>
                         
-                        <input type="text" value={cond.keyword} onChange={(e) => setConditions(conditions.map(c => c.id === cond.id ? { ...c, keyword: e.target.value } : c))} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} className="flex-1 px-3 py-1.5 text-sm border border-gray-300 bg-white rounded-md outline-none font-medium text-gray-800 shadow-sm focus:ring-2 focus:ring-teal-400" placeholder="검색어 입력..." />
+                        <input type="text" value={cond.keyword} onChange={(e) => setConditions(conditions.map(c => c.id === cond.id ? { ...c, keyword: e.target.value } : c))} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} className="flex-1 px-3 py-1.5 text-sm border border-gray-300 bg-white rounded-md outline-none font-medium text-gray-800 shadow-sm focus:ring-2 focus:ring-teal-400" placeholder={t('search_placeholder')} />
                         
                         {conditions.length > 1 && <button onClick={() => setConditions(conditions.filter(c => c.id !== cond.id))} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"><X className="w-4 h-4" /></button>}
                         
                         {idx === conditions.length - 1 && (
                           <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
-                            <button onClick={() => setConditions([...conditions, { id: Date.now(), target: tableData.data.columns[0] || '', keyword: '', operator: 'AND' }])} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm"><Plus className="w-3 h-3" /> AND</button>
-                            <button onClick={() => setConditions([...conditions, { id: Date.now(), target: tableData.data.columns[0] || '', keyword: '', operator: 'OR' }])} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm"><Plus className="w-3 h-3" /> OR</button>
-                            <button onClick={handleSearch} className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-1.5 rounded-md text-sm font-bold transition-colors flex items-center gap-1.5 shadow-sm ml-1"><Search className="w-4 h-4" /> 검색 적용</button>
+                            <button onClick={() => setConditions([...conditions, { id: Date.now(), target: tableData.data.columns[0] || '', keyword: '', operator: 'AND' }])} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm"><Plus className="w-3 h-3" /> {t('search_and')}</button>
+                            <button onClick={() => setConditions([...conditions, { id: Date.now(), target: tableData.data.columns[0] || '', keyword: '', operator: 'OR' }])} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm"><Plus className="w-3 h-3" /> {t('search_or')}</button>
+                            <button onClick={handleSearch} className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-1.5 rounded-md text-sm font-bold transition-colors flex items-center gap-1.5 shadow-sm ml-1"><Search className="w-4 h-4" /> {t('search_apply')}</button>
                           </div>
                         )}
                       </div>
@@ -228,7 +223,7 @@ export default function SystemDataExplorerPage() {
                  ) : tableData?.data?.rows?.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 font-bold">
                        <Table2 className="w-12 h-12 mb-3 text-gray-200"/>
-                       <p>테이블에 데이터가 존재하지 않습니다.</p>
+                       <p>{t('empty_data')}</p>
                     </div>
                  ) : (
                     <div className="inline-block min-w-full align-middle border-t border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -244,13 +239,12 @@ export default function SystemDataExplorerPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100 text-sm">
-                          {/* 💡 [UX Update] tr에 cursor-pointer 적용 및 더블 클릭 이벤트 바인딩 */}
                           {tableData?.data?.rows?.map((row: any, idx: number) => (
                             <tr 
                               key={idx} 
                               onDoubleClick={() => setSelectedRowData(row)}
                               className="hover:bg-teal-50/50 transition-colors cursor-pointer"
-                              title="더블클릭하여 상세 내용 보기"
+                              title={t('tooltip_dblclick')}
                             >
                               <td className="p-3 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
                               {tableData.data.columns.map((col: string) => (
@@ -268,7 +262,7 @@ export default function SystemDataExplorerPage() {
 
               {currentMeta && (
                 <div className="p-3 border-t border-gray-200 bg-white flex justify-between items-center shrink-0">
-                   <span className="text-sm font-bold text-gray-500 pl-2">총 {currentMeta.total_count.toLocaleString()} 건</span>
+                   <span className="text-sm font-bold text-gray-500 pl-2">{t('total_count', { count: currentMeta.total_count.toLocaleString() })}</span>
                    <div className="flex items-center gap-2">
                      <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors bg-white"><ChevronLeft className="w-4 h-4 text-gray-600" /></button>
                      <div className="flex gap-1">
@@ -279,10 +273,10 @@ export default function SystemDataExplorerPage() {
                      <button disabled={page >= currentMeta.total_pages} onClick={() => setPage(p => p + 1)} className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors bg-white"><ChevronRight className="w-4 h-4 text-gray-600" /></button>
                    </div>
                    <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }} className="bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-teal-500 text-xs font-bold text-gray-600 shadow-sm cursor-pointer">
-                     <option value={20}>20개씩 보기</option>
-                     <option value={50}>50개씩 보기</option>
-                     <option value={100}>100개씩 보기</option>
-                     <option value={500}>500개씩 보기</option>
+                     <option value={20}>{t('view_20')}</option>
+                     <option value={50}>{t('view_50')}</option>
+                     <option value={100}>{t('view_100')}</option>
+                     <option value={500}>{t('view_500')}</option>
                    </select>
                 </div>
               )}
@@ -291,13 +285,12 @@ export default function SystemDataExplorerPage() {
         </div>
       </div>
 
-      {/* 💡 [NEW] 상세 열람 전용 모달 */}
       {selectedRowData && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-2xl w-[800px] max-w-full max-h-[85vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden">
             <div className="p-5 border-b border-gray-200 bg-gray-900 flex items-center justify-between shrink-0">
               <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
-                <Database className="w-5 h-5 text-teal-400"/> 레코드 상세 열람
+                <Database className="w-5 h-5 text-teal-400"/> {t('modal_title')}
               </h2>
               <button onClick={() => setSelectedRowData(null)} className="text-gray-400 hover:text-white transition-colors">
                 <X className="w-6 h-6" />
@@ -345,6 +338,60 @@ export default function SystemDataExplorerPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function MasterAdminView() {
+  const t = useTranslations('Domain');
+  const [activeTab, setActiveTab] = useState<'ENTITY' | 'OBJECT' | 'STATUS'>('ENTITY');
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pr-1">
+      <div className="flex gap-4 mb-6 shrink-0">
+        <button onClick={() => setActiveTab('ENTITY')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'ENTITY' ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Layers className="w-5 h-5" /> {t('tab_entity')}</button>
+        <button onClick={() => setActiveTab('OBJECT')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'OBJECT' ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Box className="w-5 h-5" /> {t('tab_object')}</button>
+        <button onClick={() => setActiveTab('STATUS')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'STATUS' ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}><Tags className="w-5 h-5" /> {t('tab_status')}</button>
+      </div>
+
+      {activeTab === 'ENTITY' && <EntityView />}
+      {activeTab === 'OBJECT' && <ObjectView />}
+      {activeTab === 'STATUS' && <StatusView />}
+    </div>
+  );
+}
+
+export default function DataDictionaryPage() {
+  const t = useTranslations('Domain');
+  const [mode, setMode] = useState<'MASTER' | 'SYSTEM'>('MASTER');
+  const [systemSchema, setSystemSchema] = useState<'ext' | 'core' | 'domain' | 'raw'>('ext');
+
+  return (
+    <main className="min-h-screen bg-gray-50 p-8 text-gray-800 relative pb-20 flex flex-col h-screen overflow-hidden">
+      <header className="mb-6 flex items-center justify-between border-b border-gray-200 pb-4 shrink-0">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
+            <Database className="w-8 h-8 text-emerald-600" /> {t('studio_title')}
+          </h1>
+          <p className="text-sm text-gray-500 mt-2">{t('studio_subtitle')}</p>
+        </div>
+        
+        {/* 모드 전환 스위치 */}
+        <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+          <button onClick={() => setMode('MASTER')} className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${mode === 'MASTER' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t('mode_master')}
+          </button>
+          <button onClick={() => setMode('SYSTEM')} className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${mode === 'SYSTEM' ? 'bg-white shadow-sm text-teal-600' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t('mode_system')}
+          </button>
+        </div>
+      </header>
+
+      {mode === 'MASTER' ? (
+        <MasterAdminView />
+      ) : (
+        <SystemDataExplorerView activeSchema={systemSchema} setActiveSchema={setSystemSchema} />
       )}
     </main>
   );

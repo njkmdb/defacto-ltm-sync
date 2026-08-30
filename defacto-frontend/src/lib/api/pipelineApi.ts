@@ -1,7 +1,5 @@
-import axios from 'axios';
-const apiClient = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080', headers: { 'Content-Type': 'application/json' } });
+import { apiClient } from './client';
 
-// 💡 파라미터에 baseEntityId 강제 추가 및 쿼리 파라미터 맵핑
 export const getPipelineStatus = async ({ baseEntityId, page = 1, limit = 20, startDate, endDate, statusFilter }: { baseEntityId: number; page?: number; limit?: number; startDate?: string; endDate?: string; statusFilter?: string; }) => {
   const params = new URLSearchParams({ base_entity_id: baseEntityId.toString(), page: page.toString(), limit: limit.toString() });
   if (startDate) params.append('start_date', startDate);

@@ -10,19 +10,18 @@ from schemas.creative_schemas import CreativeContentSchema, MetaPromptSchema
 logger = logging.getLogger(__name__)
 
 class HierarchicalFactSchema(BaseModel):
-    ref_entity_id_1: Optional[int] = Field(None, description="도출된 타겟 주체/거래처 ID (없으면 null)")
-    fact_content: str = Field(..., description="오탈자가 교정되고 완벽히 정제된 순도 100%의 팩트 원문 줄글")
-    attributes: Dict[str, Any] = Field(default_factory=dict, description="금액, 품목 등 구조화된 Key-Value 메타데이터")
-    content_text: str = Field(..., description="3~4줄 이내의 초압축 요약 텍스트 (빠른 Index 스캔용)")
-    core_keywords: List[str] = Field(default_factory=list, description="쿼리 증강을 위한 핵심 키워드 배열 (예: ['단가 인하', '클레임'])")
+    ref_entity_id_1: Optional[int] = Field(None, description="Derived target entity/client ID (null if none)")
+    fact_content: str = Field(..., description="100% pure fact original text, perfectly refined and typo-corrected")
+    attributes: Dict[str, Any] = Field(default_factory=dict, description="Structured Key-Value metadata such as amounts, items, etc.")
+    content_text: str = Field(..., description="Ultra-compressed summary text within 3 to 4 lines (for fast Index scanning)")
+    core_keywords: List[str] = Field(default_factory=list, description="Core keyword array for query augmentation (e.g., ['price reduction', 'claim'])")
 
 class EventBriefingSchema(BaseModel):
-    executive_summary: str = Field(..., description="사용자 질의에 대한 팩트 기반의 최종 총평")
-    key_findings: List[str] = Field(default_factory=list, description="질의와 관련된 주요 발견 팩트 리스트")
-    risk_and_warnings: List[str] = Field(default_factory=list, description="팩트 간의 모순, 누락 가능성 또는 경고 사항 (매우 중요)")
-    recommended_actions: List[str] = Field(default_factory=list, description="향후 권고 행동 지침 리스트")
+    executive_summary: str = Field(..., description="Final fact-based overall summary responding to the user's query")
+    key_findings: List[str] = Field(default_factory=list, description="List of key discovered facts related to the query")
+    risk_and_warnings: List[str] = Field(default_factory=list, description="Contradictions between facts, potential omissions, or warnings (CRITICAL)")
+    recommended_actions: List[str] = Field(default_factory=list, description="List of recommended future action guidelines")
 
-# 💡 [Phase 2 & Fact Check] 스키마 레지스트리
 SCHEMA_REGISTRY = {
     "HierarchicalFactSchema": HierarchicalFactSchema,
     "EventBriefingSchema": EventBriefingSchema,
@@ -33,18 +32,18 @@ SCHEMA_REGISTRY = {
     "FactCheckSchema": FactCheckSchema
 }
 
-# 💡 [CRITICAL] A_EXTRACTION 및 B_FACT_CHECK 프롬프트 업데이트
+# 💡 [핵심 개선] B_SYNTHESIS 기본 프롬프트에 조건부 예외 처리(IF empty, SKIP) 완벽 적용
 DEFAULT_PROMPTS = {
-    "A_EXTRACTION": "당신은 뛰어난 AI 데이터 엔지니어입니다. 주어진 비정형 텍스트와 [참고 마스터 데이터]를 바탕으로, 오탈자 교정 원문(fact_content), 속성(attributes), 초압축 요약(content_text), 키워드 배열(core_keywords)을 동시에 완벽하게 추출하세요. 언급된 주체가 참고 마스터 데이터에 존재하면 ref_entity_id_1에 매핑하십시오.\n[★ 중요 제약사항 ★] 텍스트 최하단에 '[System Auto-Correction]' 태그가 존재할 경우, 이는 ERP 교차 검증을 거친 '절대 진리'입니다. 원본 텍스트의 상충하는 내용을 완전히 무시하고, 반드시 이 태그에 명시된 수치와 사실을 1순위로 우선하여 추출 및 반영하십시오.",
-    "B_PLANNING": "당신은 스스로 필요한 데이터를 탐색하는 AI 데이터 에이전트입니다. 제공된 [Index 요약본] 내의 '타겟 주체 ID' 및 외부 데이터를 읽고, 최종 보고서 작성을 위해 더 구체적인 팩트 원문(FETCH_FACT_DETAILS)이나 해당 주체/객체의 마스터 정보(FETCH_ENTITY_MASTER, FETCH_OBJECT_MASTER)가 필요하다고 판단되면 제공된 Tool을 호출하십시오. 요약본만으로 정보가 충분하다면 SUFFICIENT_INFO 도구를 사용하십시오.",
-    "B_FACT_CHECK": "당신은 피도 눈물도 없는 무자비한 데이터 감사관(Auditor)입니다.\n[비정형 기억(LTM)] 텍스트와 [EXT 외부 정형 데이터(ERP/CRM)]의 수치, 날짜, 사실을 완벽히 교차 검증하십시오. EXT 데이터는 무조건적인 '절대 진리(Ground Truth)'입니다. \n비정형 기억에서 단 1원, 단 하루라도 EXT 데이터와 상충하는 모순이 있다면 `has_conflict`를 true로 설정하고 `discrepancies` 배열에 상세 내역을 추출하십시오. \n이때, 해당 오류 LTM의 원천 아이디인 [원본 raw_id]를 `source_raw_id`에 반드시 기록하십시오.",
-    "B_SYNTHESIS": "당신은 뛰어난 비서입니다. 당신은 [Index 요약본], [에이전트 인출 데이터], 그리고 [외부 정형 데이터]를 모두 제공받았습니다. 해당 주체와의 이력 연속성을 설명하고, 팩트 원문의 정성적 흐름과 정형 데이터의 수치가 일치하는지 교차 검증하여 새로운 인사이트를 도출하고 최종 요약본(llm_summary)을 작성하십시오. 검증 결과를 바탕으로 action_items 필드에 '송장 처리 준비', '단가 재협상'과 같은 구체적인 실무 지침을 반드시 포함하십시오. 환각 없이 오직 제공된 정보만 사용해야 합니다.",
-    "C_PLANNING": "당신은 스스로 필요한 데이터를 탐색하는 AI 데이터 에이전트입니다. 제공된 [Index 요약본] 내의 '타겟 주체 ID' 및 외부 데이터를 읽고, 전문 요약 리포트 작성을 위해 더 구체적인 팩트 원문(FETCH_FACT_DETAILS)이나 해당 주체의 마스터 정보(FETCH_ENTITY_MASTER, FETCH_OBJECT_MASTER)가 필요하다고 판단되면 제공된 Tool을 호출하여 타겟 ID 배열을 넘기십시오. 충분하다면 SUFFICIENT_INFO를 반환하십시오.",
-    "C_BRIEFING": "당신은 제공된 [상세 팩트 원문], [마스터 데이터] 및 [외부 정형 데이터]만을 100% 근거로 삼는 보조 요약가입니다. 팩트 원문의 정성적 흐름과 정형 데이터의 수치가 일치하는지 교차 검증하십시오. 원문에 없는 내용은 절대 지어내지 마시고(No Hallucination), 만약 팩트 간의 모순이 있거나 정보가 부족하다면 반드시 `risk_and_warnings` 필드에 해당 사실을 명시하십시오. 검증 결과를 바탕으로 `recommended_actions` 필드에 '송장 처리 준비', '단가 재협상'과 같은 구체적인 실무 지침을 반드시 포함하십시오.",
-    "C_CREATIVE": "당신은 전문적인 AI 카피라이터입니다. 사용자가 지정한 [톤앤매너]에 맞춰, 제공된 [원본 팩트 데이터]를 바탕으로 2차 창작물을 작성하십시오. 작성 시 원본의 핵심 사실을 100% 보존해야 하며, 왜곡하거나 없는 사실을 지어내지 마십시오. 검증 결과 팩트가 완벽히 보존되었다면 fact_preservation_check를 true로 반환하십시오."
+    "A_EXTRACTION": "You are an elite AI data engineer. Based on the provided unstructured text and [Reference Master Data], perfectly extract and output the typo-corrected original text (fact_content), attributes, ultra-compressed summary (content_text), and keyword array (core_keywords) simultaneously. If the mentioned entity exists in the reference master data, map it precisely to ref_entity_id_1.\n[★ CRITICAL CONSTRAINT ★] If a '[System Auto-Correction]' tag exists at the bottom of the text, it represents the 'Absolute Truth' verified through ERP cross-validation. You MUST completely ignore any conflicting content in the original text and prioritize extracting and reflecting the figures and facts explicitly stated in this tag as the top priority.",
+    "B_PLANNING": "You are an autonomous AI data agent that searches for necessary data. Read the 'target entity ID' and external data in the provided [Index Summary], and if you determine that more specific fact texts (FETCH_FACT_DETAILS) or master information of the entity/object (FETCH_ENTITY_MASTER, FETCH_OBJECT_MASTER) are needed to write the final report, call the provided Tools. If the summary alone is sufficient, use the SUFFICIENT_INFO tool.",
+    "B_FACT_CHECK": "You are a ruthless and merciless Data Auditor.\nPerfectly cross-validate the numbers, dates, and facts between the [Unstructured Memory (LTM)] text and the [EXT External Structured Data (ERP/CRM)]. The EXT data is the unconditional 'Ground Truth'.\nIf there is even a single contradiction in the unstructured memory that conflicts with the EXT data by a single cent or a single day, set `has_conflict` to true and extract the detailed breakdown into the `discrepancies` array.\nAt this time, you MUST record the original raw_id of the erroneous LTM into `source_raw_id`.",
+    "B_SYNTHESIS": "You are an outstanding assistant. You have been provided with the [Index Summary], [Agent Retrieved Data], and [External Structured Data].\n[CRITICAL CONSTRAINTS]\n1. IF [External Structured Data] or past memories (LTM) are provided, cross-validate the qualitative flow of the fact text with them and explain the historical continuity.\n2. IF they are empty or missing, SKIP the cross-validation and simply synthesize a professional business log based ONLY on the provided facts for today.\n3. Derive new insights and write the final summary (llm_summary). Based on the validation or synthesis, you MUST include specific practical guidelines in the action_items field. You must use ONLY the provided information without any hallucination.",
+    "C_PLANNING": "You are an autonomous AI data agent that searches for necessary data. Read the 'target entity ID' and external data in the provided [Index Summary], and if you determine that more specific fact texts (FETCH_FACT_DETAILS) or master information of the target (FETCH_ENTITY_MASTER, FETCH_OBJECT_MASTER) are needed to write a professional summary report, call the provided Tools and pass the target ID arrays. If sufficient, return SUFFICIENT_INFO.",
+    "C_BRIEFING": "You are an assistant summarizer who relies 100% ONLY on the provided [Detailed Fact Text], [Master Data], and [External Structured Data]. Cross-validate if the qualitative flow of the fact text matches the figures in the structured data. NEVER invent content not present in the original text (No Hallucination). If there are contradictions between facts or insufficient information, you MUST specify this in the `risk_and_warnings` field. Based on the validation results, you MUST include specific practical guidelines in the `recommended_actions` field, such as 'prepare invoice processing' or 'renegotiate unit price'.",
+    "C_CREATIVE": "You are a professional AI copywriter. Based on the provided [Original Fact Data], write a secondary creative content tailored to the [Tone & Manner] specified by the user. When writing, you MUST preserve 100% of the core facts of the original text, and DO NOT distort or invent non-existent facts. If the facts are perfectly preserved as a result of the verification, return fact_preservation_check as true."
 }
 
-def get_dynamic_prompt(db: Session, step: str, entity_id: int, default_schema_name: str) -> tuple[str, Any, float, int]:
+def get_dynamic_prompt(db: Session, step: str, entity_id: int, default_schema_name: str, target_lang: str = "Korean") -> tuple[str, Any, float, int]:
     entity = db.query(MstEntity).filter(MstEntity.entity_id == entity_id).first()
     entity_type = entity.entity_type if entity else "UNKNOWN"
     
@@ -76,7 +75,7 @@ def get_dynamic_prompt(db: Session, step: str, entity_id: int, default_schema_na
                 selected = p
                 break
                 
-    default_prompt = DEFAULT_PROMPTS.get(step, "기본 프롬프트가 설정되지 않았습니다.")
+    default_prompt = DEFAULT_PROMPTS.get(step, "No default prompt configured.")
     
     if selected:
         schema_cls = SCHEMA_REGISTRY.get(selected.schema_name)
@@ -84,12 +83,21 @@ def get_dynamic_prompt(db: Session, step: str, entity_id: int, default_schema_na
             logger.warning(f"[Schema Fallback] '{selected.schema_name}' 스키마를 찾을 수 없어 '{default_schema_name}'로 대체합니다.")
             schema_cls = SCHEMA_REGISTRY[default_schema_name]
         
-        return (
-            selected.system_prompt, 
-            schema_cls, 
-            float(selected.temperature) if selected.temperature is not None else 0.7, 
-            int(selected.max_length) if selected.max_length is not None else 1000
-        )
+        base_instruction = selected.system_prompt 
+        temperature = float(selected.temperature) if selected.temperature is not None else 0.7 
+        max_length = int(selected.max_length) if selected.max_length is not None else 1000
     else:
         logger.info(f"[Prompt Fallback] '{step}' 단계의 활성 프롬프트를 찾을 수 없어 하드코딩된 기본 프롬프트를 사용합니다.")
-        return default_prompt, SCHEMA_REGISTRY[default_schema_name], 0.7, 1000
+        base_instruction = default_prompt
+        schema_cls = SCHEMA_REGISTRY[default_schema_name]
+        # 💡 [개선] 팩트 기반 요약의 정밀도를 위해 기본 디폴트 온도를 0.2로 하향 조정
+        temperature = 0.2 
+        max_length = 1000
+
+    global_i18n_rule = f"""<ROLE>You are an expert AI Assistant operating in a global B2B environment.</ROLE>
+<PROCESS>Think, reason, and validate all facts strictly in ENGLISH using your latent space.</PROCESS>
+<OUTPUT>You MUST output all final string values within the JSON response in fluent {target_lang}. DO NOT translate keys or schema structures.</OUTPUT>"""
+
+    final_instruction = f"{global_i18n_rule}\n\n{base_instruction}"
+
+    return final_instruction, schema_cls, temperature, max_length

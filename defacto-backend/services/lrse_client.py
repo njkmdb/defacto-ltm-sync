@@ -4,20 +4,23 @@ from pydantic import BaseModel
 from typing import Type, TypeVar, Any
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
+# 👇 [추가] 동적 설정 파일 로더 임포트
+from services.system_service import get_dynamic_settings
+
 T = TypeVar('T', bound=BaseModel)
 logger = logging.getLogger(__name__)
 
 class LRSEClient:
-    """
-    [Task 3.1] LRSE 미들웨어 연동 클라이언트
-    OpenAI/Anthropic API를 직접 호출하지 않고, LRSE 서버와 통신하여 팩트를 구조화합니다.
-    """
-    def __init__(self, lrse_url: str, session_id: str, session_secret: str, api_key: str, model_name: str = "gemini-1.5-pro"):
+    def __init__(self, lrse_url: str, session_id: str, session_secret: str, api_key: str = None, model_name: str = None):
+        settings = get_dynamic_settings()
+        
         self.lrse_url = lrse_url.rstrip("/")
         self.session_id = session_id
         self.session_secret = session_secret
-        self.api_key = api_key
-        self.model_name = model_name
+        
+        # 👇 외부에서 값이 넘어오지 않았다면 동적 환경 설정값을 사용합니다.
+        self.api_key = api_key if api_key else settings.get("GEMINI_API_KEY", "")
+        self.model_name = model_name if model_name else settings.get("MODEL_NAME", "gemini-2.5-flash")
 
         self.headers = {
             "x-gemini-api-key": self.api_key,
@@ -27,10 +30,6 @@ class LRSEClient:
         }
 
     async def _inject_dynamic_schema(self, schema_cls: Type[T]) -> None:
-        """
-        [Task 3.2] 동적 스키마 주입 (Seed Injection)
-        LRSE의 /init 엔드포인트에 도메인 Pydantic 모델의 JSON 스키마를 사전 주입합니다.
-        """
         endpoint = f"{self.lrse_url}/api/v1/session/init"
         schema_name = schema_cls.__name__
         
@@ -85,10 +84,6 @@ class LRSEClient:
         retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TimeoutException))
     )
     async def extract_fact(self, raw_content: str, target_schema_cls: Type[T], system_instruction: str = "", temperature: float = 0.0, max_tokens: int = None) -> T:
-        """
-        [Task 3.2] RPC 호출 (JSON 강제화 위임)
-        비정형 텍스트를 전송하여 완벽한 Pydantic 인스턴스로 변환받아 반환합니다.
-        """
         await self._inject_dynamic_schema(target_schema_cls)
 
         schema_name = target_schema_cls.__name__
@@ -101,7 +96,6 @@ class LRSEClient:
             "temperature": temperature
         }
         
-        # 💡 [추가] LLM 토큰 물리적 제한 주입
         if max_tokens:
             payload["max_output_tokens"] = max_tokens
 

@@ -2,16 +2,17 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { getDashboardStatistics } from '@/lib/api/pipeline';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Activity, Database, BrainCircuit, RefreshCw, BarChart2 } from 'lucide-react';
 import { DashboardStatisticsResponse } from '@/types/api';
 
 export default function StatisticsDashboardSection() {
-  const baseEntityId = 1024; // 💡 현재 접속된 Tenant ID 하드코딩 주입
+  const t = useTranslations('Dashboard');
+  const baseEntityId = 1024;
 
   const { data, isLoading } = useQuery<DashboardStatisticsResponse>({
-    // 💡 쿼리 키 및 Fetch 함수에 baseEntityId 파라미터 연동
     queryKey: ['dashboardStatistics', baseEntityId],
     queryFn: () => getDashboardStatistics(baseEntityId),
     refetchInterval: 10000 
@@ -44,23 +45,23 @@ export default function StatisticsDashboardSection() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4 hover:shadow-md transition-shadow">
           <div className="p-4 bg-indigo-50 rounded-xl"><BrainCircuit className="w-8 h-8 text-indigo-600"/></div>
           <div>
-            <p className="text-sm font-bold text-gray-500">총 누적 AI 기억 (LTM)</p>
-            <p className="text-3xl font-extrabold text-gray-900">{stats.total_memories.toLocaleString()} <span className="text-sm font-medium text-gray-400">건</span></p>
+            <p className="text-sm font-bold text-gray-500">{t('stats_ltm')}</p>
+            <p className="text-3xl font-extrabold text-gray-900">{stats.total_memories.toLocaleString()} <span className="text-sm font-medium text-gray-400">{t('unit_count')}</span></p>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4 hover:shadow-md transition-shadow">
           <div className="p-4 bg-emerald-50 rounded-xl"><Database className="w-8 h-8 text-emerald-600"/></div>
           <div>
-            <p className="text-sm font-bold text-gray-500">관리 중인 주체 (Entities)</p>
-            <p className="text-3xl font-extrabold text-gray-900">{stats.total_entities.toLocaleString()} <span className="text-sm font-medium text-gray-400">개</span></p>
+            <p className="text-sm font-bold text-gray-500">{t('stats_entities')}</p>
+            <p className="text-3xl font-extrabold text-gray-900">{stats.total_entities.toLocaleString()} <span className="text-sm font-medium text-gray-400">{t('unit_item')}</span></p>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4 hover:shadow-md transition-shadow">
           <div className="p-4 bg-orange-50 rounded-xl"><Activity className="w-8 h-8 text-orange-600"/></div>
           <div>
-            <p className="text-sm font-bold text-gray-500">최근 7일 파이프라인 처리량</p>
+            <p className="text-sm font-bold text-gray-500">{t('stats_pipeline')}</p>
             <p className="text-3xl font-extrabold text-gray-900">
-              {stats.daily_pipeline_stats.reduce((acc, curr) => acc + curr.total_count, 0).toLocaleString()} <span className="text-sm font-medium text-gray-400">건</span>
+              {stats.daily_pipeline_stats.reduce((acc, curr) => acc + curr.total_count, 0).toLocaleString()} <span className="text-sm font-medium text-gray-400">{t('unit_count')}</span>
             </p>
           </div>
         </div>
@@ -69,7 +70,7 @@ export default function StatisticsDashboardSection() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-indigo-500" /> 일별 파이프라인 처리 현황 (최근 7일)
+            <BarChart2 className="w-5 h-5 text-indigo-500" /> {t('stats_daily_trend')}
           </h3>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -79,8 +80,8 @@ export default function StatisticsDashboardSection() {
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
                 <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                <Bar dataKey="success_count" name="성공 (Synced)" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} barSize={30} />
-                <Bar dataKey="failed_count" name="실패 (Failed)" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={30} />
+                <Bar dataKey="success_count" name={t('stats_success')} stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} barSize={30} />
+                <Bar dataKey="failed_count" name={t('stats_failed')} stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={30} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -88,7 +89,7 @@ export default function StatisticsDashboardSection() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-emerald-500" /> 외부 정형 데이터 수집 추이 (EXT Sync)
+            <Activity className="w-5 h-5 text-emerald-500" /> {t('ext_sync')}
           </h3>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -103,7 +104,7 @@ export default function StatisticsDashboardSection() {
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Area type="monotone" dataKey="records_fetched" name="수집 건수" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRecords)" />
+                <Area type="monotone" dataKey="records_fetched" name={t('stats_fetched')} stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRecords)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

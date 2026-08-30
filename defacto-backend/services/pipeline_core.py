@@ -14,7 +14,8 @@ class PipelineContext:
     """
     def __init__(self, base_entity_id: int, initial_data: Dict[str, Any]):
         self.base_entity_id = base_entity_id
-        self.state: Dict[str, Any] = initial_data.copy() if initial_data else {}
+        # 💡 [버그 수정] 프론트엔드의 {{initial_context.xxx}} 변수 바인딩과 정확히 호환되도록 네스팅(Nesting) 구조로 래핑합니다.
+        self.state: Dict[str, Any] = {"initial_context": initial_data.copy() if initial_data else {}}
 
     def resolve_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -67,12 +68,6 @@ class BaseNode(ABC):
     """
     @abstractmethod
     async def execute(self, params: Dict[str, Any], context: PipelineContext, db: Session) -> Any:
-        """
-        :param params: resolve_params()를 거쳐 변수가 모두 치환된 순수 속성값 딕셔너리
-        :param context: PipelineContext (전역 상태 접근 및 base_entity_id 참조용)
-        :param db: 단일 트랜잭션으로 묶인 Database Session
-        :return: 파이프라인 state에 저장될 결과값 (dict, str, list 등 자유)
-        """
         pass
 
 
@@ -92,7 +87,6 @@ class PipelineOrchestrator:
     async def execute(self, request: PipelineExecutionRequest) -> Dict[str, Any]:
         context = PipelineContext(request.base_entity_id, request.initial_context)
         
-        # 단일 트랜잭션 무결성 보장. 실패 시 고아 데이터(Orphan) 생성을 방지하기 위한 롤백 블록
         with self.db.begin_nested():
             sorted_steps = sorted(request.steps, key=lambda x: x.step_order)
             
@@ -103,13 +97,9 @@ class PipelineOrchestrator:
                 if not node_handler:
                     raise ValueError(f"인가되지 않거나 알 수 없는 모듈이 호출되었습니다: {step.module_name}")
                 
-                # 이전 노드의 결과가 현재 노드의 input 파라미터로 동적 매핑
                 resolved_params = context.resolve_params(step.params)
-                
-                # 노드 코어 로직 실행
                 result = await node_handler.execute(resolved_params, context, self.db)
                 
-                # 결과물을 전역 state에 릴레이하여 다음 노드가 쓸 수 있게 함
                 context.state[step.output_key] = result
                 logger.info(f"[Orchestrator] Node {step.step_id} Completed. Output bound to '{step.output_key}'")
                 

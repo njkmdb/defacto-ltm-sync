@@ -13,6 +13,10 @@ from schemas.api_schemas import (
 
 logger = logging.getLogger(__name__)
 
+def get_lang_code(target_lang: str) -> str:
+    lang_map = {"Japanese": "ja", "English": "en", "Korean": "ko"}
+    return lang_map.get(target_lang, "ko")
+
 def validate_status_id_range(status_id: int, category: str):
     if category == 'SYSTEM' and not (0 <= status_id <= 9):
         raise Exception("SYSTEM 카테고리는 0~9 번호만 사용할 수 있습니다.")
@@ -25,15 +29,24 @@ def validate_status_id_range(status_id: int, category: str):
     elif category == 'WORKFLOW' and not (300 <= status_id <= 399):
         raise Exception("WORKFLOW 카테고리는 300~399 번호만 사용할 수 있습니다.")
 
-def get_active_status_options(category: str, db: Session) -> dict:
+def get_active_status_options(category: str, db: Session, target_lang: str = "Korean") -> dict:
     query = db.query(MstStatus).filter(MstStatus.is_active == True)
     if category: 
         query = query.filter(MstStatus.domain_category == category)
     statuses = query.order_by(MstStatus.status_id.asc()).all()
-    data = [{"status_id": s.status_id, "status_name": s.status_name} for s in statuses]
+    
+    lang_code = get_lang_code(target_lang)
+    data = []
+    for s in statuses:
+        final_name = s.status_name
+        if s.attributes and f"name_{lang_code}" in s.attributes:
+            final_name = s.attributes[f"name_{lang_code}"]
+            
+        data.append({"status_id": s.status_id, "status_name": final_name})
+        
     return {"status": "success", "data": data}
 
-def get_mst_statuses(db: Session, page: int = 1, limit: int = 20, category_filter: str = None, search_conditions: str = None) -> dict:
+def get_mst_statuses(db: Session, page: int = 1, limit: int = 20, category_filter: str = None, search_conditions: str = None, target_lang: str = "Korean") -> dict:
     query = db.query(MstStatus)
     
     if category_filter and category_filter != 'ALL':
@@ -76,7 +89,23 @@ def get_mst_statuses(db: Session, page: int = 1, limit: int = 20, category_filte
     offset = (page - 1) * limit
     
     statuses = query.order_by(MstStatus.status_id.asc()).offset(offset).limit(limit).all()
-    data = [{"status_id": s.status_id, "domain_category": s.domain_category, "status_name": s.status_name, "is_active": s.is_active, "ne_ts": s.ne_ts, "up_ts": s.up_ts} for s in statuses]
+    
+    lang_code = get_lang_code(target_lang)
+    data = []
+    for s in statuses:
+        final_name = s.status_name
+        if s.attributes and f"name_{lang_code}" in s.attributes:
+            final_name = s.attributes[f"name_{lang_code}"]
+            
+        data.append({
+            "status_id": s.status_id, 
+            "domain_category": s.domain_category, 
+            "status_name": final_name, 
+            "attributes": s.attributes or {},
+            "is_active": s.is_active, 
+            "ne_ts": s.ne_ts, 
+            "up_ts": s.up_ts
+        })
     
     return {"status": "success", "data": data, "meta": { "total_count": total_count, "current_page": page, "total_pages": total_pages, "limit": limit }}
 
@@ -91,6 +120,7 @@ def create_mst_status(request: CreateMstStatusRequest, db: Session) -> dict:
             status_id=request.status_id, 
             domain_category=request.domain_category, 
             status_name=request.status_name, 
+            attributes=request.attributes,
             is_active=request.is_active
         )
         db.add(new_status)
@@ -118,6 +148,7 @@ def update_mst_status(status_id: int, request: UpdateMstStatusRequest, db: Sessi
             
         status_obj.domain_category = request.domain_category
         status_obj.status_name = request.status_name
+        status_obj.attributes = request.attributes
         status_obj.is_active = request.is_active
         db.commit()
         return {"status": "success", "message": "상태 데이터가 성공적으로 수정되었습니다."}
@@ -179,12 +210,14 @@ def bulk_upsert_mst_statuses(request: BulkUpsertMstStatusRequest, db: Session) -
                 status_id=item.status_id, 
                 domain_category=item.domain_category,
                 status_name=item.status_name, 
+                attributes=item.attributes,
                 is_active=item.is_active, 
                 up_ts=datetime.utcnow()
             )
             update_dict = {
                 "domain_category": stmt.excluded.domain_category,
                 "status_name": stmt.excluded.status_name,
+                "attributes": stmt.excluded.attributes,
                 "is_active": stmt.excluded.is_active,
                 "up_ts": datetime.utcnow()
             }

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from './client';
 import { 
   PipelineExecutionRequest, 
   PipelineExecutionResponse, 
@@ -6,11 +6,6 @@ import {
   CreatePipelinePresetRequest,
   UpdatePipelinePresetRequest
 } from '@/types/api';
-
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080',
-  headers: { 'Content-Type': 'application/json' },
-});
 
 export const executeDynamicPipeline = async (data: PipelineExecutionRequest): Promise<PipelineExecutionResponse> => {
   const response = await apiClient.post('/api/v1/core/builder/execute', data);

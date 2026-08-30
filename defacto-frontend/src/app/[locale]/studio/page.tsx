@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Palette, Layers, Archive } from 'lucide-react';
 import CreativeStudioEditor from '@/components/studio/CreativeStudioEditor';
 import CreativeArchiveView from '@/components/studio/CreativeArchiveView';
 
 function StudioContent() {
+  const t = useTranslations('Studio');
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname(); // 💡 다국어 라우팅을 위해 추가
   
   const [activeTab, setActiveTab] = useState<'WORKSPACE' | 'ARCHIVE'>('WORKSPACE');
 
@@ -21,8 +24,8 @@ function StudioContent() {
   if (sourcesParam) {
     try {
       initialSources = sourcesParam.split(',').map(s => {
-        const [t, i, b] = s.split(':');
-        return { type: t as any, id: Number(i), baseEntityId: Number(b) };
+        const [tType, i, b] = s.split(':');
+        return { type: tType as any, id: Number(i), baseEntityId: Number(b) };
       });
     } catch (e) {}
   } else if (sourceType && sourceId) {
@@ -36,26 +39,38 @@ function StudioContent() {
   }, [sourcesParam, sourceType, sourceId]);
 
   const clearParamsAndNavigateArchive = () => {
-    router.replace('/studio'); 
+    router.replace(pathname); // 💡 하드코딩된 '/studio' 대신 현재의 다국어 유지 경로 사용
     setActiveTab('ARCHIVE');
   };
 
   return (
     <div className="flex flex-col h-full w-full">
-      <div className="flex gap-4 mb-6 shrink-0">
-        <button 
-          onClick={() => setActiveTab('WORKSPACE')} 
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'WORKSPACE' ? 'bg-purple-900 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
-        >
-          <Layers className="w-5 h-5" /> 2차 창작 워크스페이스
-        </button>
-        <button 
-          onClick={clearParamsAndNavigateArchive} 
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'ARCHIVE' ? 'bg-purple-900 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
-        >
-          <Archive className="w-5 h-5" /> 2차 창작 아카이브
-        </button>
-      </div>
+      <header className="mb-6 flex items-center justify-between border-b border-gray-200 pb-4 shrink-0">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
+            <Palette className="w-8 h-8 text-purple-600" /> {t('title')}
+          </h1>
+          <p className="text-sm text-gray-500 mt-2">
+            {t('subtitle')}
+          </p>
+        </div>
+        
+        {/* 모드 전환 스위치 */}
+        <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+          <button 
+            onClick={() => setActiveTab('WORKSPACE')} 
+            className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${activeTab === 'WORKSPACE' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            {t('tab_workspace')}
+          </button>
+          <button 
+            onClick={clearParamsAndNavigateArchive} 
+            className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${activeTab === 'ARCHIVE' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            {t('tab_archive')}
+          </button>
+        </div>
+      </header>
 
       {activeTab === 'WORKSPACE' && (
         <CreativeStudioEditor 
@@ -72,18 +87,11 @@ function StudioContent() {
 }
 
 export default function StudioPage() {
+  const t = useTranslations('Studio');
+  
   return (
     <main className="min-h-screen bg-gray-50 p-8 text-gray-800 relative pb-20 flex flex-col">
-      <header className="mb-8 border-b border-gray-200 pb-4 shrink-0">
-        <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
-          <Palette className="w-8 h-8 text-purple-600" /> 2차 창작 스튜디오
-        </h1>
-        <p className="text-sm text-gray-500 mt-2">
-          원문 데이터를 다양한 톤앤매너로 재창조하는 능동적인 워크스페이스와 생성된 창작물 보관소를 통합 관리합니다.
-        </p>
-      </header>
-      
-      <Suspense fallback={<div className="p-20 text-center font-bold text-gray-400">스튜디오 로딩 중...</div>}>
+      <Suspense fallback={<div className="p-20 text-center font-bold text-gray-400">{t('loading')}</div>}>
         <StudioContent />
       </Suspense>
     </main>

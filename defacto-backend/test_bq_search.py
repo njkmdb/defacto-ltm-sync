@@ -33,7 +33,8 @@ async def run_test():
         embedding_service = EmbeddingService(api_key=api_key)
         
         # 2. 테스트용 검색어 설정 및 벡터 임베딩 생성
-        test_query = "과거에 진행했던 중요한 계약이나 인공지능 관련 기억을 찾아줘"
+        # 💡 [i18n] Cross-Lingual 임베딩 검색 품질 테스트를 위해 일본어 쿼리로 변경
+        test_query = "過去に行った重要な契約や人工知能に関する記憶を探して"
         print(f"🔍 검색어: '{test_query}'\n=> 임베딩(Vector) 변환 중...")
         query_vector = await embedding_service.get_embedding(test_query)
         

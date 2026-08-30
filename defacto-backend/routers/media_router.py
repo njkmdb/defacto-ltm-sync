@@ -2,8 +2,9 @@ import os
 import shutil
 import uuid
 import logging
+from typing import Optional
 from datetime import datetime, date
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Header
 from sqlalchemy.orm import Session
 
 from google import genai  
@@ -14,20 +15,41 @@ from database.models import EventRawSource, EventRaw
 from schemas.api_schemas import StructureEventsRequest
 from services import pipeline_service
 
+# 👇 [추가] 
+from services.system_service import get_dynamic_settings
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/media", tags=["Media Pipeline"])
 
 UPLOAD_BASE_DIR = os.getenv("UPLOAD_DIR", "./uploads_nvme")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+def get_target_language(
+    accept_language: Optional[str] = Header(None),
+    x_target_language: Optional[str] = Header(None)
+) -> str:
+    if x_target_language:
+        return x_target_language
+    if accept_language:
+        primary_lang = accept_language.split(',')[0].split('-')[0].lower()
+        if primary_lang == 'ja': return "Japanese"
+        elif primary_lang == 'ko': return "Korean"
+        elif primary_lang == 'en': return "English"
+    return "Korean"
 
 async def extract_text_from_media(file_path: str, source_type: str) -> str:
     logger.info(f"🚀 Gemini 멀티모달 텍스트 추출 엔진 가동 중... (Type: {source_type}, File: {file_path})")
     
+    # 💡 하드코딩된 변수 대신, 호출 시점에 동적 설정값을 불러옵니다.
+    settings = get_dynamic_settings()
+    api_key = settings.get("GEMINI_API_KEY")
+    model_name = settings.get("MODEL_NAME", "gemini-2.5-flash")
+    
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY가 설정되지 않아 AI 추출을 수행할 수 없습니다.")
+        
+    gemini_client = genai.Client(api_key=api_key)
+    
     try:
-        if not gemini_client:
-            raise ValueError("GEMINI_API_KEY가 설정되지 않아 AI 추출을 수행할 수 없습니다.")
-
         if source_type == "AUDIO":
             uploaded_audio = await gemini_client.aio.files.upload(file=file_path)
             prompt = (
@@ -36,7 +58,7 @@ async def extract_text_from_media(file_path: str, source_type: str) -> str:
                 "인사말이나 요약 등 다른 설명은 일절 덧붙이지 말고 오직 추출된 텍스트만 반환하세요."
             )
             response = await gemini_client.aio.models.generate_content(
-                model='gemini-3.6-flash',
+                model=model_name,
                 contents=[prompt, uploaded_audio]
             )
             await gemini_client.aio.files.delete(name=uploaded_audio.name)
@@ -50,7 +72,7 @@ async def extract_text_from_media(file_path: str, source_type: str) -> str:
                 "인사말이나 요약 등 다른 설명은 일절 덧붙이지 말고 오직 추출된 텍스트만 반환하세요."
             )
             response = await gemini_client.aio.models.generate_content(
-                model='gemini-3.6-flash',
+                model=model_name,
                 contents=[prompt, img]
             )
             return response.text.strip()
@@ -63,7 +85,7 @@ async def extract_text_from_media(file_path: str, source_type: str) -> str:
                 "인사말이나 요약 등 다른 설명은 일절 덧붙이지 말고 오직 추출된 텍스트만 반환하세요."
             )
             response = await gemini_client.aio.models.generate_content(
-                model='gemini-3.6-flash',
+                model=model_name,
                 contents=[prompt, uploaded_pdf]
             )
             await gemini_client.aio.files.delete(name=uploaded_pdf.name)
@@ -76,7 +98,7 @@ async def extract_text_from_media(file_path: str, source_type: str) -> str:
         logger.error(f"Gemini 추출 엔진 오류 발생: {str(e)}")
         raise e
 
-async def process_media_background(source_id: int, file_path: str, source_type: str, base_entity_id: int):
+async def process_media_background(source_id: int, file_path: str, source_type: str, base_entity_id: int, target_lang: str):
     db: Session = SessionLocal()
     try:
         logger.info(f"[Worker] 미디어 처리 시작 - Source ID: {source_id}, Type: {source_type}")
@@ -117,7 +139,7 @@ async def process_media_background(source_id: int, file_path: str, source_type: 
             schema_name="HierarchicalFactSchema",
             retry_failed=False
         )
-        await pipeline_service.process_structure_events(request, db)
+        await pipeline_service.process_structure_events(request, db, target_lang)
         
         logger.info(f"[Worker] 🟢 파일 업로드 ➡️ 텍스트 추출 ➡️ 팩트 구조화 전체 연쇄 처리 완료!")
         
@@ -136,7 +158,8 @@ async def upload_media(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     base_entity_id: int = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    target_lang: str = Depends(get_target_language)
 ):
     try:
         content_type = file.content_type or ""
@@ -187,7 +210,8 @@ async def upload_media(
             source_id=new_source.source_id,
             file_path=file_path,
             source_type=source_type,
-            base_entity_id=base_entity_id
+            base_entity_id=base_entity_id,
+            target_lang=target_lang
         )
 
         return {

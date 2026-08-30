@@ -2,14 +2,16 @@
 
 import React, { useState, useRef, ChangeEvent, useEffect, DragEvent } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query'; 
+import { useTranslations } from 'next-intl';
 import { UploadCloud, FileAudio, Image as ImageIcon, FileText, FileCode, Loader2, CheckCircle, XCircle } from 'lucide-react'; 
 import { uploadMediaFile } from '@/lib/api/media';
 import { getPipelineStatus } from '@/lib/api/pipeline';
 
 export default function MediaUploadSection() {
+  const t = useTranslations('Dashboard');
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const baseEntityId = 1024; // 💡 현재 접속된 Tenant ID 하드코딩 주입
+  const baseEntityId = 1024; 
 
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -17,7 +19,6 @@ export default function MediaUploadSection() {
   const [uploadWaitState, setUploadWaitState] = useState({ isWaiting: false, targetCount: 0 });
 
   const { data: trackerStatus } = useQuery({
-    // 💡 쿼리 키 및 Fetch 함수에 baseEntityId 파라미터 연동
     queryKey: ['pipelineStatusTracker', baseEntityId],
     queryFn: () => getPipelineStatus({ baseEntityId, page: 1, limit: 1 }),
     refetchInterval: uploadWaitState.isWaiting ? 2000 : false, 
@@ -27,23 +28,23 @@ export default function MediaUploadSection() {
     if (!uploadWaitState.isWaiting) return;
     if (trackerStatus && trackerStatus.total_count >= uploadWaitState.targetCount) {
       setUploadWaitState({ isWaiting: false, targetCount: 0 });
-      setStatusPopup({ show: true, type: 'success', message: 'AI 데이터 추출 및 목록 갱신 완료!' });
+      setStatusPopup({ show: true, type: 'success', message: t('media_popup_success') });
       setTimeout(() => setStatusPopup(prev => ({ ...prev, show: false })), 4000);
       queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] }); 
     }
-  }, [trackerStatus?.total_count, uploadWaitState, queryClient]);
+  }, [trackerStatus?.total_count, uploadWaitState, queryClient, t]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     if (uploadWaitState.isWaiting) {
       timeoutId = setTimeout(() => {
         setUploadWaitState({ isWaiting: false, targetCount: 0 });
-        setStatusPopup({ show: true, type: 'error', message: 'AI 처리가 지연되고 있습니다. 상태를 직접 확인해주세요.' });
+        setStatusPopup({ show: true, type: 'error', message: t('media_popup_error_delay') });
         setTimeout(() => setStatusPopup(prev => ({ ...prev, show: false })), 4000);
       }, 60000); 
     }
     return () => clearTimeout(timeoutId);
-  }, [uploadWaitState.isWaiting]);
+  }, [uploadWaitState.isWaiting, t]);
 
   const handleUpload = async (files: FileList | File[]) => {
     const validFiles: File[] = [];
@@ -77,13 +78,13 @@ export default function MediaUploadSection() {
 
     try {
       for (let i = 0; i < totalFiles; i++) {
-        setStatusPopup({ show: true, type: 'uploading', message: `서버로 파일을 전송 중입니다... (${i + 1}/${totalFiles})` });
-        await uploadMediaFile(validFiles[i], baseEntityId); // 💡 baseEntityId 주입
+        setStatusPopup({ show: true, type: 'uploading', message: t('media_popup_uploading', { current: i + 1, total: totalFiles }) });
+        await uploadMediaFile(validFiles[i], baseEntityId);
       }
-      setStatusPopup({ show: true, type: 'processing', message: `총 ${totalFiles}개의 파일을 AI 엔진이 분석 중입니다... 잠시만 기다려주세요.` });
+      setStatusPopup({ show: true, type: 'processing', message: t('media_popup_processing', { total: totalFiles }) });
       setUploadWaitState({ isWaiting: true, targetCount });
     } catch (error: any) {
-      setStatusPopup({ show: true, type: 'error', message: '일부 파일 업로드 중 오류가 발생했습니다.' });
+      setStatusPopup({ show: true, type: 'error', message: t('media_popup_error_upload') });
       setTimeout(() => setStatusPopup(prev => ({ ...prev, show: false })), 4000);
       setUploadWaitState({ isWaiting: false, targetCount: 0 }); 
     } finally {
@@ -106,7 +107,7 @@ export default function MediaUploadSection() {
     <>
       <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <UploadCloud className="w-5 h-5 text-purple-600" /> 다이렉트 파일 업로드 (음성/이미지/문서 일괄 처리 지원)
+          <UploadCloud className="w-5 h-5 text-purple-600" /> {t('media_title')}
         </h2>
         <div
           onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={() => fileInputRef.current?.click()}
@@ -124,14 +125,14 @@ export default function MediaUploadSection() {
           />
           {isUploading ? <Loader2 className="w-12 h-12 text-purple-500 animate-spin mb-3" /> : <UploadCloud className="w-12 h-12 text-gray-400 mb-3" />}
           <p className="text-sm text-gray-600 font-medium">
-            {isUploading ? '백그라운드에서 데이터를 일괄 처리 중입니다...' : '여러 파일을 한 번에 선택하거나 이곳으로 드래그하세요'}
+            {isUploading ? t('media_processing') : t('media_drag')}
           </p>
           
           <div className="flex gap-4 mt-5 text-xs text-gray-500 font-semibold bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
-            <span className="flex items-center gap-1.5"><FileAudio size={14} className="text-blue-500" /> 음성 (.m4a, .mp3)</span>
-            <span className="flex items-center gap-1.5"><ImageIcon size={14} className="text-pink-500" /> 이미지 (.jpg, .png)</span>
-            <span className="flex items-center gap-1.5"><FileText size={14} className="text-orange-500" /> PDF (10MB 제한)</span>
-            <span className="flex items-center gap-1.5"><FileCode size={14} className="text-green-500" /> 텍스트 (1MB 제한)</span>
+            <span className="flex items-center gap-1.5"><FileAudio size={14} className="text-blue-500" /> {t('media_audio')}</span>
+            <span className="flex items-center gap-1.5"><ImageIcon size={14} className="text-pink-500" /> {t('media_image')}</span>
+            <span className="flex items-center gap-1.5"><FileText size={14} className="text-orange-500" /> {t('media_pdf')}</span>
+            <span className="flex items-center gap-1.5"><FileCode size={14} className="text-green-500" /> {t('media_text')}</span>
           </div>
         </div>
       </div>

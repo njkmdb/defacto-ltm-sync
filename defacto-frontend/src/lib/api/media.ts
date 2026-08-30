@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080',
-});
+import { apiClient } from './client';
 
 export const uploadMediaFile = async (file: File, baseEntityId: number) => {
   const formData = new FormData();

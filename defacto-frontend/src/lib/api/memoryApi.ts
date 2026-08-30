@@ -1,7 +1,5 @@
-import axios from 'axios';
+import { apiClient } from './client';
 import { MemorySearchRequest, GenerateBriefingRequest } from '@/types/api';
-
-const apiClient = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080', headers: { 'Content-Type': 'application/json' } });
 
 export const searchMemoryExplorer = async (data: MemorySearchRequest) => {
   const response = await apiClient.post('/api/v1/core/memory-search', data);

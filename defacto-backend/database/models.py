@@ -16,6 +16,7 @@ class MstStatus(Base):
     status_id = Column(SmallInteger, primary_key=True)
     domain_category = Column(String(50), nullable=False)
     status_name = Column(String(100), nullable=False)
+    attributes = Column(JSONB, default={}, comment="i18n 등 다국어 및 확장 속성") # 💡 Added
     is_active = Column(Boolean, default=True, nullable=False)
     up_ts = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     ne_ts = Column(DateTime, default=datetime.utcnow, nullable=False)

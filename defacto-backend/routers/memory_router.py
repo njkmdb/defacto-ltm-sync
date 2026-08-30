@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from database.database import get_db
 from schemas.api_schemas import (
@@ -13,14 +13,27 @@ from services import memory_service
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/core", tags=["Memory Explorer & Briefings"])
 
+def get_target_language(
+    accept_language: Optional[str] = Header(None),
+    x_target_language: Optional[str] = Header(None)
+) -> str:
+    if x_target_language:
+        return x_target_language
+    if accept_language:
+        primary_lang = accept_language.split(',')[0].split('-')[0].lower()
+        if primary_lang == 'ja': return "Japanese"
+        elif primary_lang == 'ko': return "Korean"
+        elif primary_lang == 'en': return "English"
+    return "Korean"
+
 @router.post("/memory-search", response_model=MemorySearchResponse)
 async def search_memory_explorer(request: MemorySearchRequest, db: Session = Depends(get_db)):
     try: return await memory_service.search_memory_explorer(request, db)
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-briefing")
-async def generate_event_briefing(request: GenerateBriefingRequest, db: Session = Depends(get_db)):
-    try: return await memory_service.generate_event_briefing(request, db)
+async def generate_event_briefing(request: GenerateBriefingRequest, db: Session = Depends(get_db), target_lang: str = Depends(get_target_language)):
+    try: return await memory_service.generate_event_briefing(request, db, target_lang)
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/save-briefing")

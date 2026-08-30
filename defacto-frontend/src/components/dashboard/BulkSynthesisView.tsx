@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Calendar, RefreshCw, Layers, CheckCircle, XCircle } from 'lucide-react';
 import { triggerBulkSynthesize, getBatchJobStatus, getPipelinePresets } from '@/lib/api/pipeline';
 import { BatchJobStatusResponse } from '@/types/api';
 
 export default function BulkSynthesisView() {
+  const t = useTranslations('Dashboard');
   const [bulkDate, setBulkDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>('default_synthesis_v1');
   const [bulkJobId, setBulkJobId] = useState<string | null>(null);
@@ -18,13 +20,13 @@ export default function BulkSynthesisView() {
 
   const bulkMut = useMutation({
     mutationFn: async () => {
-      if (!selectedPipelineId) throw new Error("파이프라인 프리셋을 선택해주세요.");
+      if (!selectedPipelineId) throw new Error(t('synth_alert_preset_req'));
       return await triggerBulkSynthesize(bulkDate, selectedPipelineId);
     },
     onSuccess: (data) => {
       setBulkJobId(data.job_id);
     },
-    onError: (err: any) => alert(err.response?.data?.detail || err.message || "일괄 합성에 실패했습니다.")
+    onError: (err: any) => alert(err.response?.data?.detail || err.message || t('synth_alert_bulk_fail'))
   });
 
   const { data: jobStatus } = useQuery<BatchJobStatusResponse>({
@@ -44,21 +46,21 @@ export default function BulkSynthesisView() {
   return (
     <div className="flex-1 flex flex-col h-full">
       <p className="text-sm text-gray-600 mb-6 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 leading-relaxed shrink-0">
-         특정 일자에 접수된 모든 비정형 데이터를 조회하여, 각 주체(Entity)별로 백그라운드에서 동적 파이프라인을 일괄 가동합니다. TPM(토큰 제한) 방어를 위해 최대 3개의 워커가 병렬로 분산 처리합니다.
+         {t('synth_bulk_desc')}
       </p>
 
       <div className="flex gap-4 mb-4 shrink-0">
         <div className="flex-1">
-           <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Calendar className="w-4 h-4" /> Target Date (대상 일자)</label>
+           <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Calendar className="w-4 h-4" /> {t('synth_target_date')}</label>
            <input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold text-gray-700" />
         </div>
       </div>
 
       <div className="mb-6 shrink-0">
-        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Layers className="w-4 h-4" /> Pipeline Preset</label>
+        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><Layers className="w-4 h-4" /> {t('synth_preset')}</label>
         <select value={selectedPipelineId} onChange={e => setSelectedPipelineId(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white shadow-sm font-bold text-gray-800">
-          <option value="">(필수) 일괄 가동할 파이프라인을 선택하세요...</option>
-          <option value="default_synthesis_v1">시스템 기본 파이프라인</option>
+          <option value="">{t('synth_preset_req')}</option>
+          <option value="default_synthesis_v1">{t('synth_preset_default')}</option>
           {presets?.data?.filter((p: any) => p.pipeline_id !== 'default_synthesis_v1').map((p: any) => (
             <option key={p.pipeline_id} value={p.pipeline_id}>{p.pipeline_name}</option>
           ))}
@@ -66,13 +68,13 @@ export default function BulkSynthesisView() {
       </div>
 
       <button onClick={() => bulkMut.mutate()} disabled={bulkMut.isPending || isJobActive || !selectedPipelineId} className={`w-full mb-8 flex items-center justify-center gap-2 text-white font-bold py-3 px-4 rounded-xl transition-colors disabled:opacity-50 shadow-md shrink-0 ${selectedPipelineId ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-900 hover:bg-black'}`}>
-         {bulkMut.isPending || isJobActive ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />} 동적 파이프라인 일괄 백그라운드 가동
+         {bulkMut.isPending || isJobActive ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />} {t('synth_btn_bulk_run')}
       </button>
 
       {bulkJobId && (
          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
             <h3 className="text-sm font-bold text-gray-800 flex items-center justify-between">
-               <span>진행 상태 관제 (Job ID: <span className="font-mono text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded ml-1">{bulkJobId.split('-')[0]}</span>)</span>
+               <span>{t('synth_bulk_status')} ({t('synth_job_id')} <span className="font-mono text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded ml-1">{bulkJobId.split('-')[0]}</span>)</span>
                {jobStatus?.status === 'RUNNING' || jobStatus?.status === 'PENDING' ? (
                   <span className="flex items-center gap-1.5 text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded-full border border-blue-100"><RefreshCw className="w-3.5 h-3.5 animate-spin"/> {jobStatus?.status}</span>
                ) : jobStatus?.status === 'COMPLETED' ? (
@@ -89,8 +91,8 @@ export default function BulkSynthesisView() {
             </div>
 
             <div className="flex justify-between text-xs font-bold text-gray-500 px-1">
-               <span>{progress}% 완료됨</span>
-               <span><strong className="text-indigo-600 text-sm">{jobStatus?.current_count || 0}</strong> / {jobStatus?.total_count || 0} 개 주체 처리</span>
+               <span>{t('synth_bulk_pct', { pct: progress })}</span>
+               <span>{t('synth_bulk_count', { current: jobStatus?.current_count || 0, total: jobStatus?.total_count || 0 })}</span>
             </div>
 
             {jobStatus?.error_log && (

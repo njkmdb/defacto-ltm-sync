@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Search, Plus, X } from 'lucide-react';
 
 export type SearchCondition = {
@@ -18,6 +19,8 @@ interface DomainSearchConditionsProps {
 }
 
 export default function DomainSearchConditions({ activeTab, conditions, setConditions, onSearch }: DomainSearchConditionsProps) {
+  const t = useTranslations('Domain');
+
   const addCondition = (operator: 'AND' | 'OR') => {
     setConditions([...conditions, { id: Date.now(), target: 'NAME', keyword: '', operator }]);
   };
@@ -33,7 +36,7 @@ export default function DomainSearchConditions({ activeTab, conditions, setCondi
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
       <label className="block text-sm font-extrabold text-gray-700 mb-3 flex items-center gap-2">
-        <Search className="w-4 h-4 text-emerald-600"/> 다중 조건 상세 검색
+        <Search className="w-4 h-4 text-emerald-600"/> {t('search_title')}
       </label>
       <div className="flex flex-col gap-3">
         {conditions.map((cond, idx) => (
@@ -44,11 +47,11 @@ export default function DomainSearchConditions({ activeTab, conditions, setCondi
                 onChange={(e) => updateCondition(cond.id, 'operator', e.target.value as 'AND' | 'OR')}
                 className="text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5 outline-none cursor-pointer w-20 text-center shadow-sm"
               >
-                <option value="AND">AND</option>
-                <option value="OR">OR</option>
+                <option value="AND">{t('search_and')}</option>
+                <option value="OR">{t('search_or')}</option>
               </select>
             ) : (
-              <span className="w-20 text-center text-xs font-bold text-gray-400 bg-gray-200 rounded-md py-2">WHERE</span>
+              <span className="w-20 text-center text-xs font-bold text-gray-400 bg-gray-200 rounded-md py-2">{t('search_where')}</span>
             )}
 
             <select 
@@ -56,17 +59,17 @@ export default function DomainSearchConditions({ activeTab, conditions, setCondi
               onChange={(e) => updateCondition(cond.id, 'target', e.target.value)} 
               className="text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5 outline-none cursor-pointer w-40 shadow-sm"
             >
-              <option value="NAME">Name</option>
-              <option value="ID">ID</option>
-              {activeTab === 'STATUS' && <option value="CATEGORY">Category</option>}
-              {activeTab !== 'STATUS' && <option value="TYPE">Type</option>}
-              {activeTab !== 'STATUS' && <option value="PARENT">Parent</option>}
-              {activeTab !== 'STATUS' && <option value="ATTRIBUTES">Attributes (JSONB)</option>}
+              <option value="NAME">{t('search_opt_name')}</option>
+              <option value="ID">{t('search_opt_id')}</option>
+              {activeTab === 'STATUS' && <option value="CATEGORY">{t('search_opt_category')}</option>}
+              {activeTab !== 'STATUS' && <option value="TYPE">{t('search_opt_type')}</option>}
+              {activeTab !== 'STATUS' && <option value="PARENT">{t('search_opt_parent')}</option>}
+              {activeTab !== 'STATUS' && <option value="ATTRIBUTES">{t('search_opt_attr')}</option>}
             </select>
             
             <input 
               type="text" 
-              placeholder="검색어 입력..." 
+              placeholder={t('search_placeholder')}
               value={cond.keyword}
               onChange={(e) => updateCondition(cond.id, 'keyword', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onSearch()}
@@ -74,7 +77,7 @@ export default function DomainSearchConditions({ activeTab, conditions, setCondi
             />
 
             {conditions.length > 1 && (
-              <button onClick={() => removeCondition(cond.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors ml-1" title="조건 삭제">
+              <button onClick={() => removeCondition(cond.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors ml-1">
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -82,13 +85,13 @@ export default function DomainSearchConditions({ activeTab, conditions, setCondi
             {idx === conditions.length - 1 && (
               <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
                 <button onClick={() => addCondition('AND')} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm">
-                  <Plus className="w-3 h-3" /> AND 조건
+                  <Plus className="w-3 h-3" /> {t('search_and_btn')}
                 </button>
                 <button onClick={() => addCondition('OR')} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm">
-                  <Plus className="w-3 h-3" /> OR 조건
+                  <Plus className="w-3 h-3" /> {t('search_or_btn')}
                 </button>
                 <button onClick={onSearch} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-bold transition-colors flex items-center gap-1.5 shadow-sm ml-1">
-                  <Search className="w-4 h-4" /> 검색 적용
+                  <Search className="w-4 h-4" /> {t('search_apply')}
                 </button>
               </div>
             )}

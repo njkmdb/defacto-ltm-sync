@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import StatisticsDashboardSection from '@/components/dashboard/StatisticsDashboardSection';
 import MediaUploadSection from '@/components/dashboard/MediaUploadSection';
 import PipelineControlSection from '@/components/dashboard/PipelineControlSection';
@@ -9,12 +10,14 @@ import ExtSyncMonitorSection from '@/components/dashboard/ExtSyncMonitorSection'
 import SystemInsightsSection from '@/components/dashboard/SystemInsightsSection';
 
 export default function DashboardPage() {
+  const t = useTranslations('Dashboard');
+
   return (
     <main className="min-h-screen bg-gray-50 p-8 text-gray-800 relative">
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Defacto LTM-Sync</h1>
-          <p className="text-sm text-gray-500 mt-2">이벤트 기반 멀티모달 파이프라인 및 컨텍스트 관제 대시보드</p>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{t('title')}</h1>
+          <p className="text-sm text-gray-500 mt-2">{t('subtitle')}</p>
         </div>
       </header>
 

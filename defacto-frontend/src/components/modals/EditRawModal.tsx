@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { X, RefreshCw, Edit2, Trash2 } from 'lucide-react';
 import { updateRawEvent } from '@/lib/api/pipeline';
 
@@ -14,6 +15,9 @@ interface EditRawModalProps {
 }
 
 export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, onDeleteRequest }: EditRawModalProps) {
+  const t = useTranslations('Dashboard');
+  const tCommon = useTranslations('Common');
+
   const [editData, setEditData] = useState({ rawId: 0, baseEntityId: 0, content: '', date: '', runNow: true });
 
   useEffect(() => {
@@ -35,11 +39,11 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, 
       onSuccess();
       onClose();
     },
-    onError: (error: any) => alert(error.response?.data?.detail || "교정에 실패했습니다.")
+    onError: (error: any) => alert(error.response?.data?.detail || t('alert_edit_fail'))
   });
 
   const handleEditSubmit = () => {
-    if (!editData.content.trim()) return alert("텍스트를 입력해주세요.");
+    if (!editData.content.trim()) return alert(t('alert_req_text'));
     updateMutation.mutate({
       rawId: editData.rawId,
       req: {
@@ -65,7 +69,7 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, 
       <div className="bg-white p-8 rounded-2xl w-[1000px] max-w-[95vw] shadow-2xl border border-gray-100">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Edit2 className="w-6 h-6 text-gray-600" /> 데이터 교정 (Raw ID: {editData.rawId})
+            <Edit2 className="w-6 h-6 text-gray-600" /> {t('modal_edit_title', { id: editData.rawId })}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors">
             <X className="w-6 h-6" />
@@ -73,13 +77,13 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, 
         </div>
         
         <p className="text-sm text-gray-600 mb-6 bg-gray-50 p-3 rounded-lg border border-gray-200 leading-relaxed">
-          오탈자나 누락된 문맥을 편안하게 수정하세요. 기존에 파이프라인 처리가 완료(Synced)된 데이터였다면, 수정 즉시 <b>연관된 과거 팩트와 임베딩 메모리가 완전히 삭제(Cascade)</b>되고 초기화됩니다.
+          {t('modal_edit_desc')}
         </p>
 
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4 w-2/3">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Base Entity ID (주체)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">{t('modal_base_entity')}</label>
               <input 
                 type="number" 
                 value={editData.baseEntityId} 
@@ -88,7 +92,7 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, 
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Event Date (발생 일자)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">{t('modal_event_date')}</label>
               <input 
                 type="date" 
                 value={editData.date} 
@@ -99,7 +103,7 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, 
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Raw Content</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">{t('modal_raw_content')}</label>
             <textarea 
               value={editData.content} 
               onChange={e => setEditData({...editData, content: e.target.value})} 
@@ -116,7 +120,7 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, 
               className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
             />
             <label htmlFor="runNowEdit" className="text-base font-semibold text-blue-800 cursor-pointer">
-              수정 직후 파이프라인 재가동 (추천)
+              {t('modal_run_now_edit')}
             </label>
           </div>
         </div>
@@ -127,19 +131,19 @@ export default function EditRawModal({ isOpen, onClose, onSuccess, initialData, 
             className="px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
           >
             <Trash2 className="w-4 h-4" />
-            데이터 삭제
+            {t('modal_delete')}
           </button>
           
           <div className="flex gap-3">
             <button onClick={onClose} className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-base font-semibold hover:bg-gray-200 transition-colors">
-              취소
+              {tCommon('cancel')}
             </button>
             <button 
               onClick={handleEditSubmit} 
               disabled={updateMutation.isPending} 
               className="px-6 py-2.5 bg-gray-900 text-white rounded-lg text-base font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
-              {updateMutation.isPending && <RefreshCw className="w-5 h-5 animate-spin" />} 수정 반영
+              {updateMutation.isPending && <RefreshCw className="w-5 h-5 animate-spin" />} {t('modal_edit_save')}
             </button>
           </div>
         </div>

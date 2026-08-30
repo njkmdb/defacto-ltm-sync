@@ -22,15 +22,12 @@ logger = logging.getLogger(__name__)
 LRSE_URL = os.getenv("LRSE_URL")
 SESSION_ID = os.getenv("SESSION_ID")
 SESSION_SECRET = os.getenv("SESSION_SECRET")
-API_KEY = os.getenv("GEMINI_API_KEY") 
-MODEL_NAME = os.getenv("MODEL_NAME")
 
 MAX_FETCH_LIMIT = 15
 
 def execute_fetch_detailed_facts(db: Session, event_ids: List[int], base_entity_id: int, override_limit: bool = False) -> str:
     if not event_ids: return ""
     query = db.query(EventFact).filter(EventFact.event_id.in_(event_ids))
-    # 💡 치명적 보안 결함 수정: override_limit과 상관없이 테넌트(base_entity_id) 검증은 항상 수행
     query = query.filter(EventFact.base_entity_id == base_entity_id)
     query = query.order_by(EventFact.event_date.desc())
     if not override_limit: query = query.limit(MAX_FETCH_LIMIT)
@@ -81,10 +78,11 @@ def get_ext_data_text(db: Session, base_entity_id: int) -> str:
         logger.error(f"외부 정형 데이터 조회 실패: {str(e)}")
         return "외부 정형 데이터 조회 중 오류가 발생했습니다."
 
-async def process_synthesize_context(request: SynthesizeContextRequest, db: Session) -> SynthesizeContextResponse:
-    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET, api_key=API_KEY, model_name=MODEL_NAME)
+async def process_synthesize_context(request: SynthesizeContextRequest, db: Session, target_lang: str = "Korean") -> SynthesizeContextResponse:
+    # 💡 강제 주입 해제
+    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
     rag_service = RagOrchestrator(db)
-    embedding_service = EmbeddingService(api_key=API_KEY)
+    embedding_service = EmbeddingService()
 
     today_raws = db.query(EventRaw.raw_id).filter(EventRaw.base_entity_id == request.base_entity_id, EventRaw.event_date == request.reference_date, EventRaw.sync_status_id == 1).all()
     today_raw_ids = [r[0] for r in today_raws]
@@ -137,7 +135,7 @@ async def process_synthesize_context(request: SynthesizeContextRequest, db: Sess
         fetched_details = execute_fetch_detailed_facts(db, list(all_ids), request.base_entity_id, override_limit=True)
         rag_metrics_type = "Deep Search (All Facts Extracted)"
     else:
-        plan_instruction, plan_schema_cls, plan_temp, plan_max_len = get_dynamic_prompt(db, "B_PLANNING", request.base_entity_id, "AgentPlanningSchema")
+        plan_instruction, plan_schema_cls, plan_temp, plan_max_len = get_dynamic_prompt(db, "B_PLANNING", request.base_entity_id, "AgentPlanningSchema", target_lang)
         plan_result = await lrse_client.extract_fact(raw_content=index_payload, target_schema_cls=plan_schema_cls, system_instruction=plan_instruction, temperature=plan_temp, max_tokens=plan_max_len)
         additional_context_payload = ""
         metrics_tools_used = set()
@@ -164,7 +162,7 @@ async def process_synthesize_context(request: SynthesizeContextRequest, db: Sess
         fetched_details = additional_context_payload
         rag_metrics_type = "Agentic Dual-Track RAG (SUFFICIENT_INFO)" if not metrics_tools_used else f"Agentic Tool Calls: {', '.join(metrics_tools_used)}"
 
-    synthesis_instruction, synth_schema_cls, synth_temp, synth_max_len = get_dynamic_prompt(db, "B_SYNTHESIS", request.base_entity_id, "ContextSynthesisSchema")
+    synthesis_instruction, synth_schema_cls, synth_temp, synth_max_len = get_dynamic_prompt(db, "B_SYNTHESIS", request.base_entity_id, "ContextSynthesisSchema", target_lang)
     synthesized_result = await lrse_client.extract_fact(
         raw_content=f"{index_payload}\n\n{fetched_details}", target_schema_cls=synth_schema_cls, system_instruction=synthesis_instruction, temperature=synth_temp, max_tokens=synth_max_len
     )
@@ -173,8 +171,9 @@ async def process_synthesize_context(request: SynthesizeContextRequest, db: Sess
         status="success", data=SynthesizeContextData(log_id=999, synthesized_data=SynthesizedData(llm_summary=synthesized_result.llm_summary, action_items=synthesized_result.action_items), rag_metrics=RagMetrics(cache_hit=False, memory_type_used=rag_metrics_type))
     )
 
-async def process_fact_check(request: FactCheckRequest, db: Session) -> dict:
-    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET, api_key=API_KEY, model_name=MODEL_NAME)
+async def process_fact_check(request: FactCheckRequest, db: Session, target_lang: str = "Korean") -> dict:
+    # 💡 강제 주입 해제
+    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
     today_memories = db.query(EventMemory).filter(EventMemory.base_entity_id == request.base_entity_id, EventMemory.event_date == request.reference_date, EventMemory.memory_type == 'LTM').all()
     unique_memories = list({m.memory_id: m for m in today_memories}.values())
     if not unique_memories: return {"has_conflict": False, "discrepancies": []}
@@ -193,6 +192,6 @@ async def process_fact_check(request: FactCheckRequest, db: Session) -> dict:
     ext_data_text = get_ext_data_text(db, request.base_entity_id)
     check_payload = f"【비정형 기억(LTM)】\n{today_text}\n\n【외부 정형 데이터(EXT)】\n{ext_data_text}"
     
-    check_instruction, check_schema_cls, check_temp, check_max_len = get_dynamic_prompt(db, "B_FACT_CHECK", request.base_entity_id, "FactCheckSchema")
+    check_instruction, check_schema_cls, check_temp, check_max_len = get_dynamic_prompt(db, "B_FACT_CHECK", request.base_entity_id, "FactCheckSchema", target_lang)
     check_result = await lrse_client.extract_fact(raw_content=check_payload, target_schema_cls=check_schema_cls, system_instruction=check_instruction, temperature=check_temp, max_tokens=check_max_len)
     return check_result.model_dump()

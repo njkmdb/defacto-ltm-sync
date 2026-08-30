@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Search, Plus, X } from 'lucide-react';
 
 export type SearchCondition = {
@@ -17,6 +18,8 @@ interface MemorySearchConditionsProps {
 }
 
 export default function MemorySearchConditions({ conditions, setConditions, onSearch }: MemorySearchConditionsProps) {
+  const t = useTranslations('Memory');
+
   const addCondition = (operator: 'AND' | 'OR') => {
     setConditions([...conditions, { id: Date.now(), target: 'CONTENT', keyword: '', operator }]);
   };
@@ -32,7 +35,7 @@ export default function MemorySearchConditions({ conditions, setConditions, onSe
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
       <label className="block text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
-        다중 조건 메타데이터 필터
+        {t('cond_title')}
       </label>
       <div className="flex flex-col gap-3">
         {conditions.map((cond, idx) => (
@@ -43,11 +46,11 @@ export default function MemorySearchConditions({ conditions, setConditions, onSe
                 onChange={(e) => updateCondition(cond.id, 'operator', e.target.value as 'AND' | 'OR')}
                 className="text-sm font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-md px-2 py-1.5 outline-none cursor-pointer w-20 text-center shadow-sm"
               >
-                <option value="AND">AND</option>
-                <option value="OR">OR</option>
+                <option value="AND">{t('cond_and')}</option>
+                <option value="OR">{t('cond_or')}</option>
               </select>
             ) : (
-              <span className="w-20 text-center text-xs font-bold text-gray-400 bg-gray-100 rounded-md py-2">WHERE</span>
+              <span className="w-20 text-center text-xs font-bold text-gray-400 bg-gray-100 rounded-md py-2">{t('cond_where')}</span>
             )}
 
             <select 
@@ -55,13 +58,13 @@ export default function MemorySearchConditions({ conditions, setConditions, onSe
               onChange={(e) => updateCondition(cond.id, 'target', e.target.value)} 
               className="text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5 outline-none cursor-pointer w-40 shadow-sm"
             >
-              <option value="CONTENT">요약 원문 (ILIKE)</option>
-              <option value="KEYWORDS">Keywords 배열</option>
+              <option value="CONTENT">{t('cond_opt_content')}</option>
+              <option value="KEYWORDS">{t('cond_opt_keywords')}</option>
             </select>
             
             <input 
               type="text" 
-              placeholder="검색어 입력..." 
+              placeholder={t('cond_placeholder')}
               value={cond.keyword}
               onChange={(e) => updateCondition(cond.id, 'keyword', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onSearch()}
@@ -77,10 +80,10 @@ export default function MemorySearchConditions({ conditions, setConditions, onSe
             {idx === conditions.length - 1 && (
               <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
                 <button onClick={() => addCondition('AND')} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm">
-                  <Plus className="w-3 h-3" /> AND
+                  <Plus className="w-3 h-3" /> {t('cond_add_and')}
                 </button>
                 <button onClick={() => addCondition('OR')} className="text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 shadow-sm">
-                  <Plus className="w-3 h-3" /> OR
+                  <Plus className="w-3 h-3" /> {t('cond_add_or')}
                 </button>
               </div>
             )}

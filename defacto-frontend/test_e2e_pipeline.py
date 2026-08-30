@@ -13,15 +13,22 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 TEST_BASE_ENTITY_ID = 1024
 TEST_TARGET_ENTITY_ID = 9991
 TEST_DATE = "2026-08-20"
-UNIQUE_TARGET_NAME = "E2E_알파오메가_솔루션스"
+
+# 💡 [i18n] 타겟 이름을 일본어로 변경
+UNIQUE_TARGET_NAME = "E2E_アルファオメガ_ソリューションズ"
 
 async def run_e2e_test():
     db = SessionLocal()
-    client = httpx.AsyncClient(base_url=API_BASE_URL, timeout=30.0)
+    # 💡 [i18n] 헤더에 x-target-language 를 주입하여 일본어 출력 시나리오 강제 테스트
+    client = httpx.AsyncClient(
+        base_url=API_BASE_URL, 
+        timeout=30.0,
+        headers={"x-target-language": "Japanese"}
+    )
     raw_id = None
 
     try:
-        print("\n🚀 [E2E TEST START] Defacto LTM-Sync 파이프라인 통합 테스트 (Bulk & Scheduler 포함)\n")
+        print("\n🚀 [E2E TEST START] Defacto LTM-Sync 파이프라인 통합 테스트 (Bulk & Scheduler & i18n 포함)\n")
 
         print("▶ Step 0: 마스터 데이터 검증 및 주입")
         db.execute(text(f"""
@@ -47,10 +54,12 @@ async def run_e2e_test():
         print(f"  ✅ [DB 검증 통과] EXT 동기화 성공. 수집된 레코드 수: {history[1]}\n")
 
         print("▶ Step 2: 비정형 데이터 수동 적재 (Create) 및 파이프라인 즉시 가동")
+        
+        # 💡 [i18n] 원문을 일본어로 주입
         create_payload = {
             "base_entity_id": TEST_BASE_ENTITY_ID,
             "event_date": TEST_DATE,
-            "raw_content": f"{UNIQUE_TARGET_NAME}와 신규 계약을 논의함. 단가 협상 필요.",
+            "raw_content": f"{UNIQUE_TARGET_NAME}との新規契約について協議した。単価交渉が必要である。",
             "run_pipeline_now": True,
             "schema_name": "HierarchicalFactSchema"
         }

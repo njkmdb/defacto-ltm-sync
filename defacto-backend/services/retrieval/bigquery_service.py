@@ -3,15 +3,37 @@ import json
 import logging
 from datetime import date
 from google.cloud import bigquery
+from google.auth.exceptions import DefaultCredentialsError
 
 logger = logging.getLogger(__name__)
 
 class BigQueryRetrievalService:
     def __init__(self):
-        self.bq_client = bigquery.Client(project=os.getenv("GCP_PROJECT_ID"))
+        self.project_id = os.getenv("GCP_PROJECT_ID")
+        # 환경 변수에서 BQ 사용 여부 제어 (기본값 False로 두어 로컬 우선으로 설정)
+        self.use_bq = str(os.getenv("USE_BIGQUERY", "False")).lower() == "true"
+        self.bq_client = None
+
+        if self.use_bq and self.project_id:
+            try:
+                self.bq_client = bigquery.Client(project=self.project_id)
+                logger.info("✅ BigQuery 클라이언트 초기화 성공")
+            except DefaultCredentialsError:
+                logger.warning("⚠️ GCP 인증 정보가 없어 BigQuery 연동을 비활성화합니다.")
+                self.use_bq = False
+            except Exception as e:
+                logger.error(f"⚠️ BigQuery 초기화 실패: {e}")
+                self.use_bq = False
+        else:
+            self.use_bq = False
+            logger.info("ℹ️ BigQuery 연동이 비활성화되어 로컬 DB만 사용합니다 (USE_BIGQUERY=False).")
 
     def search_tier_3_dwh(self, query_embedding: list, reference_date: date, base_entity_id: int = None, target_entity_id: int = 0, target_object_id: int = 0, top_k: int = 5):
-        project_id = os.getenv("GCP_PROJECT_ID")
+        # BQ가 비활성화 상태이거나 클라이언트가 없으면 쿼리를 날리지 않고 즉시 빈 결과 반환
+        if not self.use_bq or not self.bq_client:
+            return []
+
+        project_id = self.project_id
         dataset_id = "defacto_dwh"
         # 💡 [스키마 변경 대응] core_dim_memory_index -> core_event_memories
         table_id = "core_event_memories" 

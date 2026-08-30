@@ -15,7 +15,7 @@ from services.pipeline_nodes import build_node_registry
 
 logger = logging.getLogger(__name__)
 
-async def bulk_synthesize_task(job_id: str, reference_date: date, entity_ids: List[int], pipeline_id: str = None):
+async def bulk_synthesize_task(job_id: str, reference_date: date, entity_ids: List[int], pipeline_id: str = None, target_lang: str = "Korean"):
     sem = asyncio.Semaphore(3)
     
     preset_steps = []
@@ -30,7 +30,6 @@ async def bulk_synthesize_task(job_id: str, reference_date: date, entity_ids: Li
             try:
                 with SessionLocal() as db:
                     if pipeline_id and preset_steps:
-                        # 💡 [Shadow Mode] 프리셋이 지정된 경우 동적 오케스트레이터로 대체 가동
                         orchestrator = PipelineOrchestrator(db)
                         for name, node in build_node_registry().items():
                             orchestrator.register_node(name, node)
@@ -38,11 +37,17 @@ async def bulk_synthesize_task(job_id: str, reference_date: date, entity_ids: Li
                         request = PipelineExecutionRequest(
                             pipeline_id=pipeline_id,
                             base_entity_id=entity_id,
-                            initial_context={"reference_date": reference_date.isoformat(), "query_text": "최근 발생한 중요 이벤트 및 비즈니스 활동 이력 검색", "use_deep_search": False, "use_pre_fact_check": True},
+                            initial_context={
+                                "reference_date": reference_date.isoformat(), 
+                                "query_text": "최근 발생한 중요 이벤트 및 비즈니스 활동 이력 검색", 
+                                "use_deep_search": False, 
+                                "use_pre_fact_check": True,
+                                "target_lang": target_lang
+                            },
                             steps=[]
                         )
                         await orchestrator.execute(request)
-                        db.commit() # 오케스트레이터의 begin_nested 트랜잭션을 최종 물리 커밋
+                        db.commit() 
                     else:
                         request = SynthesizeContextRequest(
                             base_entity_id=entity_id,
@@ -50,7 +55,7 @@ async def bulk_synthesize_task(job_id: str, reference_date: date, entity_ids: Li
                             schema_name="ContextSynthesisSchema",
                             use_deep_search=False
                         )
-                        res = await process_synthesize_context(request, db)
+                        res = await process_synthesize_context(request, db, target_lang)
                         
                         if res.data.log_id != 0: 
                             save_req = SaveSummaryRequest(

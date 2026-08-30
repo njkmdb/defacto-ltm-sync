@@ -16,10 +16,8 @@ logger = logging.getLogger(__name__)
 LRSE_URL = os.getenv("LRSE_URL")
 SESSION_ID = os.getenv("SESSION_ID")
 SESSION_SECRET = os.getenv("SESSION_SECRET")
-API_KEY = os.getenv("GEMINI_API_KEY") 
-MODEL_NAME = os.getenv("MODEL_NAME")
 
-async def generate_creative_content(request: GenerateCreativeRequest, db: Session) -> dict:
+async def generate_creative_content(request: GenerateCreativeRequest, db: Session, target_lang: str = "Korean") -> dict:
     target_texts = []
     for src in request.sources:
         if src.source_type == "LOG":
@@ -41,8 +39,11 @@ async def generate_creative_content(request: GenerateCreativeRequest, db: Sessio
     final_instruction = request.system_instruction
     if request.max_length and request.max_length > 0:
         final_instruction += f"\n\n[필수 제약사항] 반드시 최종 결과물의 길이는 공백을 포함하여 {request.max_length}자 내외로 작성하십시오."
+        
+    final_instruction += f"\n\n[글로벌 언어 제약사항] 모든 최종 출력물은 유창한 {target_lang} 언어로 작성하십시오."
 
-    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET, api_key=API_KEY, model_name=MODEL_NAME)
+    # 💡 강제 주입 해제
+    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
     result = await lrse_client.extract_fact(
         raw_content=f"【원본 팩트 데이터】\n{combined_target_text}", target_schema_cls=CreativeContentSchema, system_instruction=final_instruction, temperature=request.temperature, max_tokens=request.max_length
     )
@@ -129,9 +130,16 @@ def delete_event_creation(creation_id: int, base_entity_id: int, db: Session) ->
         db.rollback()
         raise Exception(f"창작물 삭제 실패: {str(e)}")
 
-async def generate_creative_meta_prompt(request: GenerateMetaPromptRequest) -> dict:
-    meta_instruction = "당신은 최고 수준의 AI 프롬프트 엔지니어입니다. 사용자가 요구하는 [톤앤매너/스타일]을 바탕으로, 다른 LLM이 2차 창작을 수행할 때 사용할 '시스템 프롬프트'를 작성하십시오.\n작성할 프롬프트에는 반드시 다음 제약사항이 포함되어야 합니다:\n1. 원본 팩트를 100% 보존하고 절대 지어내지 말 것.\n2. fact_preservation_check 검증 로직을 반드시 지시할 것."
-    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET, api_key=API_KEY, model_name=MODEL_NAME)
+async def generate_creative_meta_prompt(request: GenerateMetaPromptRequest, target_lang: str = "Korean") -> dict:
+    meta_instruction = (
+        f"당신은 최고 수준의 AI 프롬프트 엔지니어입니다. 사용자가 요구하는 [톤앤매너/스타일]을 바탕으로, 다른 LLM이 2차 창작을 수행할 때 사용할 '시스템 프롬프트'를 작성하십시오.\n"
+        f"작성할 프롬프트에는 반드시 다음 제약사항이 포함되어야 합니다:\n"
+        f"1. 원본 팩트를 100% 보존하고 절대 지어내지 말 것.\n"
+        f"2. fact_preservation_check 검증 로직을 반드시 지시할 것.\n"
+        f"3. 생성되는 프롬프트 문장 전체를 반드시 {target_lang} 언어로 작성할 것."
+    )
+    # 💡 강제 주입 해제
+    lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
     result = await lrse_client.extract_fact(raw_content=f"[사용자 요구 톤앤매너]: {request.user_intent}", target_schema_cls=MetaPromptSchema, system_instruction=meta_instruction, temperature=0.7)
     return {"status": "success", "data": {"suggested_prompt": result.generated_prompt}}
 

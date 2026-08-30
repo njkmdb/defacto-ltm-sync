@@ -1,5 +1,9 @@
-import axios from 'axios';
-const apiClient = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080', headers: { 'Content-Type': 'application/json' } });
+import { apiClient } from './client';
+
+export const getSystemConfig = async () => {
+  const response = await apiClient.get('/api/v1/core/system/config');
+  return response.data;
+};
 
 export const getSystemTables = async (schemaName: string) => {
   const response = await apiClient.get(`/api/v1/core/system/tables/${schemaName}`);
@@ -17,5 +21,16 @@ export const getSystemTableData = async (schemaName: string, tableName: string, 
   }
 
   const response = await apiClient.get(`/api/v1/core/system/data/${schemaName}/${tableName}?${params.toString()}`);
+  return response.data;
+};
+
+// 👇 [추가된 부분]
+export const getSystemSettings = async () => {
+  const response = await apiClient.get('/api/v1/core/system/settings');
+  return response.data;
+};
+
+export const updateSystemSettings = async (api_key: string, model_name: string) => {
+  const response = await apiClient.post('/api/v1/core/system/settings', { api_key, model_name });
   return response.data;
 };

@@ -1,10 +1,5 @@
-import axios from 'axios';
+import { apiClient } from './client';
 import { GenerateCreativeRequest, GenerateMetaPromptRequest, SaveCreativeRequest, EventCreationListResponse } from '@/types/api';
-
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080',
-  headers: { 'Content-Type': 'application/json' },
-});
 
 export const generateCreativeContent = async (data: GenerateCreativeRequest) => {
   const response = await apiClient.post('/api/v1/core/creative/generate', data);
