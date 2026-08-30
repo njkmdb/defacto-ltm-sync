@@ -48,3 +48,6 @@ venv/
 gcp-key.json
 *-key.json
 uploads_nvme/
+config_dynamic.json
+pgdata/
+__pycache__/
