@@ -1,6 +1,6 @@
 # Defacto LTM-Sync Context Manager
 
-| [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md)
+| [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) 
 
 ![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
 ![Version](https://img.shields.io/badge/version-v0.3.0-4F46E5?style=flat)
@@ -12,10 +12,17 @@
 
 It is a context manager that combines fragmented [short-term events] occurring in the field with past [specific memories (LTM)] to generate the driest and most accurate [short-text summaries], [in-depth reports], and [secondary creations].
 
-* **Features:** Provides a universal framework agnostic to domains such as sales logs, game quests, and diaries.
-* **Infrastructure:** Fundamentally supports standalone operation based on PostgreSQL (Local/Operational DB). If large-scale data expansion is required, it features a flexible architecture that can be scaled up into a 'Hybrid Dual-Track RAG Search System' by integrating Datastream ➡️ BigQuery **(BigQuery integration is optional)**. It supports multimodal data including audio and images as well as document files like PDF/CSV, and fundamentally blocks network costs by utilizing local storage instead of cloud storage.
-* **Multi-Tenant Security:** A strict data isolation architecture based on `base_entity_id` is applied from the API DTO stage to the deepest parts of the core RAG engine (Cross-Entity Vector Search). This 100% fundamentally blocks other companies' confidential data from being searched or mixed into the LLM context.
-* **Node-based Framework (Headless Engine):** It completely separates hard-coded business logic and operates based on an Orchestrator that sequentially executes tasks by reading the 'Pipeline Config' received from the frontend. The operational flow of the system can be infinitely created and expanded without redeploying the backend.
+* **Features:**  
+Provides a universal framework agnostic to domains such as sales logs, game quests, and diaries.
+
+* **Infrastructure:**  
+Fundamentally supports standalone operation based on PostgreSQL (Local/Operational DB). If large-scale data expansion is required, it features a flexible architecture that can be scaled up into a 'Hybrid Dual-Track RAG Search System' by integrating Datastream ➡️ BigQuery **(BigQuery integration is optional)**. It supports multimodal data including audio and images as well as document files like PDF/CSV, and fundamentally blocks network costs by utilizing local storage instead of cloud storage.
+
+* **Multi-Tenant Security:**  
+A strict data isolation architecture based on `base_entity_id` is applied from the API DTO stage to the deepest parts of the core RAG engine (Cross-Entity Vector Search). This 100% fundamentally blocks other companies' confidential data from being searched or mixed into the LLM context.
+
+* **Node-based Framework (Headless Engine):**  
+It completely separates hard-coded business logic and operates based on an Orchestrator that sequentially executes tasks by reading the 'Pipeline Config' received from the frontend. The operational flow of the system can be infinitely created and expanded without redeploying the backend.
 
 ---
 
@@ -25,19 +32,17 @@ This project has all environments (DB, Backend, Frontend) containerized via Dock
 
 ### 1.1. Prerequisites
 
-To boot the system, **Docker** and **Python** (for the LRSE middleware) must be installed on your local PC.
+To boot the system, **Docker** must be installed on your local PC.
 
 * **[Download Docker Desktop](https://www.docker.com/products/docker-desktop/)** (Common for Windows / Mac)
 > The Docker Desktop application must be running after installation.
 
 
-* **Python 3.10+**
-
 ### 1.2. Booting LRSE Middleware (Required 💡)
 
 This system communicates with a separate `LRSE` middleware server (port 8081) for LLM hallucination control. Please run the middleware before booting the backend.
 
-1. Clone LRSE repository: `git clone https://github.com/njkmdb/llm-rpc-schema-enforcer`
+1. Clone LRSE repository: `git clone [https://github.com/njkmdb/llm-rpc-schema-enforcer](https://github.com/njkmdb/llm-rpc-schema-enforcer)`
 2. Navigate to the folder and boot the container:
 ```bash
 docker-compose up --build -d
@@ -46,7 +51,7 @@ docker-compose up --build -d
 ### 1.3. Defacto LTM-Sync Environment Variable Setup
 
 1. Clone this repository and navigate to the folder:
-`git clone https://github.com/njkmdb/defacto-ltm-sync`
+`git clone [https://github.com/njkmdb/defacto-ltm-sync](https://github.com/njkmdb/defacto-ltm-sync)`
 2. Rename the `.env.example` file in the root directory to **`.env`**.
 3. Open the `.env` file and enter your issued **Gemini API Key**.
 
@@ -78,7 +83,7 @@ docker-compose stop
 
 ## 2. Frontend Architecture (Based on Next.js App Router)
 
-For infinite expansion of the system, an **8-tier multi-page routing structure** via the Global Navigation Bar (GNB) was adopted.
+For infinite expansion of the system, an **6-tier multi-page routing structure** via the Global Navigation Bar (GNB) was adopted.
 
 ### 2.1. Frontend Tech Stack
 
@@ -91,13 +96,26 @@ For infinite expansion of the system, an **8-tier multi-page routing structure**
 
 ### 2.2. Core Menu & UI Composition
 
-1. **[ / ] Pipeline Dashboard:** A real-time main screen that monitors dashboard statistics (costs, tokens, RAG cache hit rates, hot keywords and risk detection alerts), manual loading and error correction of unstructured data, bulk synthesis, and dynamic interval control (Pause/Resume) for the external data (EXT) sync scheduler.
-2. **[ /builder ] Pipeline Studio:** Commands a single workspace featuring a **'Pipeline Builder'** mode, which designs new data processing pipelines (JSON Config) by assembling core modules (Nodes) in the UI without backend logic modifications, and a **'Prompt Lab'** mode, which dynamically controls prompt and JSON schema mappings per pipeline step.
-3. **[ /archive ] Archive:** A dedicated repository to search, view, edit, and bulk manage (bulk delete/inject/extract) short-term logs (`core.event_logs`) and in-depth summary reports (`core.event_briefings`) synthesized by AI.
-4. **[ /memory ] Memory Explorer:** A debugging screen to search invariant data in the vector store (`core.event_memories`) using natural language and multiple conditions, and test RAG's Cosine Distance. Triggers the generation of AI summary reports (Briefing) based on cherry-picked facts.
-5. **[ /studio ] Creative Studio:** A workspace to reconstruct texts with new tones and manners by multi-selecting (Source) existing logs, reports, and creations. Supports Meta-Prompt reverse engineering and a repository function for secondary creations.
-6. **[ /domain ] Data Dictionary:** Integrates a **'Master Admin'** mode to control reference data (`domain.mst_entities`, etc.) and status codes for AI reference, and a **'System Data Explorer (DB Browser)'** mode, an exclusive tool for super admins to safely view all physical tables within the local database schemas.
-7. **[ ADM Button ] System Settings:** Through the button on the top right of the GNB, you can dynamically change and immediately apply the Gemini API Key and Model Version without restarting the backend or awkwardly modifying the `.env` file (BYOK security applied).
+1. **[ / ] Pipeline Dashboard:**  
+A real-time main screen that monitors dashboard statistics (costs, tokens, RAG cache hit rates, hot keywords and risk detection alerts), manual loading and error correction of unstructured data, bulk synthesis, and dynamic interval control (Pause/Resume) for the external data (EXT) sync scheduler.
+
+2. **[ /builder ] Pipeline Studio:**  
+Commands a single workspace featuring a **'Pipeline Builder'** mode, which designs new data processing pipelines (JSON Config) by assembling core modules (Nodes) in the UI without backend logic modifications, and a **'Prompt Lab'** mode, which dynamically controls prompt and JSON schema mappings per pipeline step.
+
+3. **[ /archive ] Archive:**  
+A dedicated repository to search, view, edit, and bulk manage (bulk delete/inject/extract) short-term logs (`core.event_logs`) and in-depth summary reports (`core.event_briefings`) synthesized by AI.
+
+4. **[ /memory ] Memory Explorer:**  
+A debugging screen to search invariant data in the vector store (`core.event_memories`) using natural language and multiple conditions, and test RAG's Cosine Distance. Triggers the generation of AI summary reports (Briefing) based on cherry-picked facts.
+
+5. **[ /studio ] Creative Studio:**  
+A workspace to reconstruct texts with new tones and manners by multi-selecting (Source) existing logs, reports, and creations. Supports Meta-Prompt reverse engineering and a repository function for secondary creations.
+
+6. **[ /domain ] Data Dictionary:**  
+Integrates a **'Master Admin'** mode to control reference data (`domain.mst_entities`, etc.) and status codes for AI reference, and a **'System Data Explorer (DB Browser)'** mode, an exclusive tool for super admins to safely view all physical tables within the local database schemas.
+
+7. **[ ADM Button ] System Settings:**  
+Through the button on the top right of the GNB, you can dynamically change and immediately apply the Gemini API Key and Model Version without restarting the backend or awkwardly modifying the `.env` file (BYOK security applied).
 
 ---
 
@@ -129,7 +147,7 @@ Virtual tables that implement infinite forms of masters like clients, employees,
 
 ### [EXT Schema: External Structured Data] - Pipeline Read-Only
 
-* **`ext_mst` & `ext_events**`: Loads external integrated data like ERP and CRM; the backend does not modify them but reads them only as external data contexts for search augmentation.
+* **`ext_mst` & `ext_events`**: Loads external integrated data like ERP and CRM; the backend does not modify them but reads them only as external data contexts for search augmentation.
 
 ---
 
@@ -225,33 +243,29 @@ Isolates API pipeline logic into 'Node (Module)' units, orchestrated by the **`P
 ## 5. Changelog
 
 * **2026.08.30 (v0.3.1)**
-* Applied efficient container regular boot process based on `docker-compose start/stop`.
-* Updated GNB integration and `[ADM]` environment settings modal for system configuration management.
-
+  - Applied efficient container regular boot process based on `docker-compose start/stop`.
+  - Updated GNB integration and `[ADM]` environment settings modal for system configuration management.
 
 * **2026.08.29 (v0.3.0)**
-* Fully introduced Node-based framework (Headless Engine).
-* Added frontend visual pipeline builder feature (`/builder`).
-* Added `mst_pipelines` table to preserve pipeline designs (JSON Config).
-* Implemented `PipelineOrchestrator` and state preservation `PipelineContext`.
-* Fully applied topological sort-based `steps` array schema (`PipelineExecutionRequest`) to API payloads.
-
+  - Fully introduced Node-based framework (Headless Engine).
+  - Added frontend visual pipeline builder feature (`/builder`).
+  - Added `mst_pipelines` table to preserve pipeline designs (JSON Config).
+  - Implemented `PipelineOrchestrator` and state preservation `PipelineContext`.
+  - Fully applied topological sort-based `steps` array schema (`PipelineExecutionRequest`) to API payloads.
 
 * **2026.08.27 (v0.2.1)**
-* Added System Data Explorer (DB Browser) feature and UI exclusively for super admins (`/system`).
-* Eliminated dynamic query anti-patterns and fundamentally blocked SQL Injections by introducing SQLAlchemy MetaData Reflection.
-* Applied defense logic against DOM Bloat and UI Freezing when rendering large-scale Vector (3072 dimensions) and JSONB objects.
-
+  - Added System Data Explorer (DB Browser) feature and UI exclusively for super admins (`/system`).
+  - Eliminated dynamic query anti-patterns and fundamentally blocked SQL Injections by introducing SQLAlchemy MetaData Reflection.
+  - Applied defense logic against DOM Bloat and UI Freezing when rendering large-scale Vector (3072 dimensions) and JSONB objects.
 
 * **2026.08.25 (v0.2.0)**
-* Fully applied enterprise Multi-Tenant data security architecture.
-* Enforced `base_entity_id` as a required value in global API DTOs and completed frontend integration.
-* Applied tenant isolation logic during Cross-Entity Search (Track 2) in RAG Orchestrator.
-* Perfected Cascade Soft Disconnect logic for orphan objects upon deletion.
-
+  - Fully applied enterprise Multi-Tenant data security architecture.
+  - Enforced `base_entity_id` as a required value in global API DTOs and completed frontend integration.
+  - Applied tenant isolation logic during Cross-Entity Search (Track 2) in RAG Orchestrator.
+  - Perfected Cascade Soft Disconnect logic for orphan objects upon deletion.
 
 * **2026.08.23 (v0.1.0)**
-* Initial release.
+ - Initial release.
 
 
 
