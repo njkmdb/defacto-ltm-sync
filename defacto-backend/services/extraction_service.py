@@ -70,6 +70,8 @@ async def process_structure_events(request: StructureEventsRequest, db: Session,
             
             enhanced_content = f"{raw_record.raw_content}\n\n[참고 마스터 데이터: {candidate_json}]"
             system_instruction, target_schema_cls, temp, max_len = get_dynamic_prompt(db, "A_EXTRACTION", request.base_entity_id, "HierarchicalFactSchema", target_lang)
+            
+            # 💡 [Phase 2] LRSE 호출부 (try-except 블록 내부에서 안전하게 실행됨)
             structured_data = await lrse_client.extract_fact(
                 raw_content=enhanced_content, target_schema_cls=target_schema_cls, system_instruction=system_instruction, temperature=temp, max_tokens=max_len
             )
@@ -98,8 +100,9 @@ async def process_structure_events(request: StructureEventsRequest, db: Session,
             
         except Exception as e:
             db.rollback()
+            # 💡 [Phase 2] HTTP 400/422 등 LRSE 에러 발생 시 Fail-Safe 마킹 (sync_status_id = 2) 및 에러 로그 기록
             raw_record.sync_status_id = 2
-            raw_record.error_log = str(e)
+            raw_record.error_log = f"[Pipeline Failed] {str(e)}"
             db.commit()
             results.append(StructureEventResult(raw_id=raw_id, sync_status_id=2, error_reason=str(e)))
             fail_count += 1

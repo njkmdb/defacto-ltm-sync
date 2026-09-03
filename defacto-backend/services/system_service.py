@@ -120,7 +120,7 @@ def get_table_data(schema_name: str, table_name: str, page: int, limit: int, sea
         }
     }
 
-# 👇 [추가된 부분] 동적 설정 파일 관리 로직
+# 👇 [하드코딩 제거] 동적 설정 파일 관리 로직의 기본값을 "auto"로 변경
 SETTINGS_PATH = os.path.join(os.getcwd(), "config_dynamic.json")
 
 def get_dynamic_settings() -> dict:
@@ -131,10 +131,9 @@ def get_dynamic_settings() -> dict:
         except Exception as e:
             logger.error(f"Failed to read dynamic settings: {e}")
             
-    # 설정 파일이 없으면 기존처럼 .env에서 읽어와 Fallback
     return {
         "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
-        "MODEL_NAME": os.getenv("MODEL_NAME", "gemini-2.5-flash")
+        "MODEL_NAME": os.getenv("MODEL_NAME", "auto")
     }
 
 def update_dynamic_settings(api_key: str, model_name: str) -> dict:

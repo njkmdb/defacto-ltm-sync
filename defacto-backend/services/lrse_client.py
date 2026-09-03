@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from typing import Type, TypeVar, Any
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
-# 👇 [추가] 동적 설정 파일 로더 임포트
 from services.system_service import get_dynamic_settings
 
 T = TypeVar('T', bound=BaseModel)
@@ -18,9 +17,9 @@ class LRSEClient:
         self.session_id = session_id
         self.session_secret = session_secret
         
-        # 👇 외부에서 값이 넘어오지 않았다면 동적 환경 설정값을 사용합니다.
+        # 👇 [하드코딩 제거] 외부에서 값이 넘어오지 않았다면 환경 설정값(auto)을 사용합니다.
         self.api_key = api_key if api_key else settings.get("GEMINI_API_KEY", "")
-        self.model_name = model_name if model_name else settings.get("MODEL_NAME", "gemini-2.5-flash")
+        self.model_name = model_name if model_name else settings.get("MODEL_NAME", "auto")
 
         self.headers = {
             "x-gemini-api-key": self.api_key,
@@ -29,11 +28,16 @@ class LRSEClient:
             "Content-Type": "application/json"
         }
 
-    async def _inject_dynamic_schema(self, schema_cls: Type[T]) -> None:
-        endpoint = f"{self.lrse_url}/api/v1/session/init"
-        schema_name = schema_cls.__name__
-        
-        schema_dict = schema_cls.model_json_schema()
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TimeoutException))
+    )
+    async def extract_fact(self, raw_content: str, target_schema_cls: Type[T], system_instruction: str = "", temperature: float = 0.0, max_tokens: int = None) -> T:
+        schema_name = target_schema_cls.__name__
+        endpoint = f"{self.lrse_url}/api/v1/rpc/call"
+
+        schema_dict = target_schema_cls.model_json_schema()
 
         def _clean_schema_for_gemini(schema_obj):
             if isinstance(schema_obj, dict):
@@ -51,47 +55,9 @@ class LRSEClient:
         safe_schema_dict = _clean_schema_for_gemini(schema_dict)
 
         payload = {
-            "session_id": self.session_id,
-            "session_secret": self.session_secret,
-            "api_key": self.api_key,
-            "model_name": self.model_name,
-            "custom_seed": [
-                {
-                    "id": schema_name,
-                    "type": "schema",
-                    "attributes": safe_schema_dict,
-                    "tags": ["defacto", "domain_schema"]
-                }
-            ]
-        }
-
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(endpoint, json=payload, timeout=10.0)
-                response.raise_for_status()
-                logger.info(f"✅ 스키마 주입 성공: {schema_name}")
-            except httpx.HTTPStatusError as e:
-                err_detail = e.response.text
-                logger.error(f"❌ 스키마 주입 실패 ({e.response.status_code}): {err_detail}")
-                raise Exception(f"LRSE Init Error: {err_detail}")
-            except Exception as e:
-                logger.error(f"❌ LRSE 서버 통신 오류 (Init): {str(e)}")
-                raise
-
-    @retry(
-        wait=wait_exponential(multiplier=2, min=4, max=60),
-        stop=stop_after_attempt(5),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TimeoutException))
-    )
-    async def extract_fact(self, raw_content: str, target_schema_cls: Type[T], system_instruction: str = "", temperature: float = 0.0, max_tokens: int = None) -> T:
-        await self._inject_dynamic_schema(target_schema_cls)
-
-        schema_name = target_schema_cls.__name__
-        endpoint = f"{self.lrse_url}/api/v1/rpc/call"
-
-        payload = {
             "context_payload": raw_content,
             "schema_name": schema_name,
+            "dynamic_schema_definition": safe_schema_dict, 
             "system_instruction": system_instruction,
             "temperature": temperature
         }
@@ -117,8 +83,9 @@ class LRSEClient:
 
             except httpx.HTTPStatusError as e:
                 err_detail = e.response.text
-                logger.error(f"❌ 팩트 구조화 실패 ({e.response.status_code}): {err_detail}")
-                raise Exception(f"LRSE RPC Error: {err_detail}")
+                status_code = e.response.status_code
+                logger.error(f"❌ 팩트 구조화 실패 (HTTP {status_code}): {err_detail}")
+                raise Exception(f"LRSE RPC Error [HTTP {status_code}]: {err_detail}")
             except Exception as e:
                 logger.error(f"❌ LRSE 서버 통신 오류 (RPC): {str(e)}")
                 raise

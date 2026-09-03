@@ -3,7 +3,7 @@
 | [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) 
 
 ![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
-![Version](https://img.shields.io/badge/version-v0.3.0-4F46E5?style=flat)
+![Version](https://img.shields.io/badge/version-v0.3.2-4F46E5?style=flat)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
@@ -241,6 +241,11 @@ Isolates API pipeline logic into 'Node (Module)' units, orchestrated by the **`P
 ---
 
 ## 5. Changelog
+
+* **2026.09.04 (v0.3.2)**
+  - Supported LRSE v0.4.0 stateless architecture (integrated dynamic schema routing)
+  - Lightened the project by removing unnecessary scaffolding files (template.py) and orphan components (DomainModals.tsx)
+  - Optimized rendering by removing dead code, such as unused state variables, within React components (EntityView, ObjectView, StatusView)
 
 * **2026.08.30 (v0.3.1)**
   - Applied efficient container regular boot process based on `docker-compose start/stop`.

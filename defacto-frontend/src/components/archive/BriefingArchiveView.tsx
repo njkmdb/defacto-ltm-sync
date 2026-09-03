@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import Papa from 'papaparse';
 import { RefreshCw, FileText, User, SearchCode, Search, CheckSquare, AlertTriangle, Lightbulb, X, Database, ChevronLeft, ChevronRight, Sparkles, Calendar, XCircle, Plus, LayoutGrid, List as ListIcon, Trash2, Save, Download } from 'lucide-react';
-import { getEventBriefings, getBriefingAuditTrail, updateEventBriefing, deleteBulkEventBriefings } from '@/lib/api/pipeline';
+import { getEventBriefing, getEventBriefings, getBriefingAuditTrail, updateEventBriefing, deleteBulkEventBriefings } from '@/lib/api/pipeline';
 import useLocaleFormatter from '@/hooks/useLocaleFormatter';
 import ArchiveSearchConditions, { SearchCondition } from './ArchiveSearchConditions';
 
@@ -23,6 +23,10 @@ export default function BriefingArchiveView() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { formatDateOnly } = useLocaleFormatter();
+  const searchParams = useSearchParams();
+
+  const focusId = searchParams.get('focusId');
+  const entityIdParam = searchParams.get('entityId');
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -39,6 +43,35 @@ export default function BriefingArchiveView() {
   
   const [activeModalTab, setActiveModalTab] = useState<'EDIT' | 'AUDIT'>('EDIT');
   const [editFormData, setEditFormData] = useState({ query_text: '', executive_summary: '', key_findings: '', risk_and_warnings: '', recommended_actions: '' });
+
+  const openEditModal = (briefing: any) => {
+    setSelectedBriefing(briefing);
+    setActiveModalTab('EDIT');
+    setEditFormData({
+      query_text: briefing.query_text || '',
+      executive_summary: briefing.executive_summary || '',
+      key_findings: briefing.key_findings ? briefing.key_findings.join('\n- ') : '',
+      risk_and_warnings: briefing.risk_and_warnings ? briefing.risk_and_warnings.join('\n- ') : '',
+      recommended_actions: briefing.recommended_actions ? briefing.recommended_actions.join('\n- ') : ''
+    });
+    setIsBriefingViewerOpen(true);
+  };
+
+  // 💡 라우팅을 통한 모달 자동 개방 로직
+  useEffect(() => {
+    if (focusId && entityIdParam) {
+      getEventBriefing(Number(focusId), Number(entityIdParam)).then(res => {
+        const briefing = res.data;
+        openEditModal(briefing);
+        
+        // Clean-up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }).catch(err => {
+        console.error(err);
+      });
+    }
+  }, [focusId, entityIdParam]);
 
   const { data: briefingsData, isLoading } = useQuery({
     queryKey: ['eventBriefings', page, limit, startDate, endDate, appliedConditions],
@@ -98,19 +131,6 @@ export default function BriefingArchiveView() {
     const blob = new Blob(["\uFEFF" + Papa.unparse(flatData)], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob)); link.setAttribute("download", `defacto_briefings_export.csv`);
     link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  };
-
-  const openEditModal = (briefing: any) => {
-    setSelectedBriefing(briefing);
-    setActiveModalTab('EDIT');
-    setEditFormData({
-      query_text: briefing.query_text || '',
-      executive_summary: briefing.executive_summary || '',
-      key_findings: briefing.key_findings ? briefing.key_findings.join('\n- ') : '',
-      risk_and_warnings: briefing.risk_and_warnings ? briefing.risk_and_warnings.join('\n- ') : '',
-      recommended_actions: briefing.recommended_actions ? briefing.recommended_actions.join('\n- ') : ''
-    });
-    setIsBriefingViewerOpen(true);
   };
 
   const handleEditSubmit = () => {

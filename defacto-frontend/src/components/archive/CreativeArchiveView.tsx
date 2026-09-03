@@ -9,6 +9,7 @@ import { RefreshCw, Trash2, Database, ChevronLeft, ChevronRight, Wand2, Type, Al
 import { getEventCreations, deleteEventCreation } from '@/lib/api/pipeline';
 import { EventCreationItem } from '@/types/api';
 import useLocaleFormatter from '@/hooks/useLocaleFormatter';
+import useSourceTracker from '@/hooks/useSourceTracker';
 
 type SearchCondition = { id: number; target: string; keyword: string; operator: 'AND' | 'OR'; };
 
@@ -26,6 +27,7 @@ export default function CreativeArchiveView() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { formatDateOnly } = useLocaleFormatter();
+  const { trackSource } = useSourceTracker();
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -163,10 +165,9 @@ export default function CreativeArchiveView() {
                     </div>
                   </div>
                   
-                  {/* 💡 [수정 완료] 증발된 onClick 이벤트와 UI 복원 */}
                   <div className="flex flex-wrap items-center gap-1.5 pl-1">
                     {creation.sources?.map((src: any, idx: number) => (
-                       <div key={idx} className="flex items-center gap-1.5 cursor-pointer bg-white border border-gray-300 hover:border-blue-400 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors group" onClick={(e) => { e.stopPropagation(); alert(t('alert_router_future', { type: src.source_type, id: src.source_id })); }} title={t('tooltip_track_src')}>
+                       <div key={idx} className="flex items-center gap-1.5 cursor-pointer bg-white border border-gray-300 hover:border-blue-400 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors group" onClick={(e) => { e.stopPropagation(); trackSource(src.source_type, src.source_id, creation.base_entity_id); }} title={t('tooltip_track_src')}>
                          <Database className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500"/>
                          <span className="text-[10px] font-extrabold text-gray-500 group-hover:text-blue-600">Source: {src.source_type} #{src.source_id}</span>
                        </div>
@@ -203,7 +204,6 @@ export default function CreativeArchiveView() {
                     <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={isSelected} onChange={() => toggleSelect(creation.creation_id)} className="w-4 h-4 text-purple-600 rounded cursor-pointer" /></td>
                     <td className="p-3 text-sm font-bold text-gray-700">{creation.creation_id}</td>
                     
-                    {/* 💡 [치명적 결함 해결] List 뷰 다중 소스 렌더링 정상화 */}
                     <td className="p-3 text-xs font-bold text-gray-500">
                       {creation.sources?.map((s: any) => `${s.source_type} #${s.source_id}`).join(', ')}
                     </td>

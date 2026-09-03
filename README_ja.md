@@ -3,7 +3,7 @@
 | [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) 
 
 ![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
-![Version](https://img.shields.io/badge/version-v0.3.0-4F46E5?style=flat)
+![Version](https://img.shields.io/badge/version-v0.3.2-4F46E5?style=flat)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
@@ -210,10 +210,14 @@ APIパイプラインロジックを「Node(モジュール)」単位で隔離�
 ---
 
 ## 5. アップデート履歴 (Changelog)
+* **2026.09.04 (v0.3.2)**
+  - LRSE v0.4.0のステートレスアーキテクチャへの対応（動的スキーマルーティングの連動）
+  - 不要なスキャフォールディングファイル（template.py）および孤児コンポーネント（DomainModals.tsx）の削除によるプロジェクトの軽量化
+  - Reactコンポーネント（EntityView, ObjectView, StatusView）内の未使用の状態（State）変数など、デッドコードの削除によるレンダリングの最適化
+
 * **2026.08.30 (v0.3.1)**
   - `docker-compose start/stop`に基づく効率的なコンテナの通常起動プロセスを適用
   - システム設定管理のためのGNB統合および `[ADM]` 環境設定モーダルの更新
-
 
 * **2026.08.29 (v0.3.0)**
   - ノードベースフレームワーク (Headless Engine) を全面導入。

@@ -3,7 +3,7 @@
 | [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) |
 
 ![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
-![Version](https://img.shields.io/badge/version-v0.3.0-4F46E5?style=flat)
+![Version](https://img.shields.io/badge/version-v0.3.2-4F46E5?style=flat)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
@@ -212,6 +212,12 @@ API 파이프라인 로직을 'Node(모듈)' 단위로 격리후, **`PipelineOrc
 
 ---
 ## 5. 업데이트 내역 (Changelog)
+
+* **2026.09.04 (v0.3.2)**
+  - LRSE v0.4.0의 무상태 아키텍처 대응(동적 스키마 라우팅 연동)
+  - 불필요한 스캐폴딩 파일(`template.py`) 및 고아 컴포넌트(`DomainModals.tsx`) 삭제를 통한 프로젝트 경량화
+  - React 컴포넌트(`EntityView`, `ObjectView`, `StatusView`) 내 사용하지 않는 상태(State) 변수 등 데드 코드 제거로 렌더링 최적화
+
 * **2026.08.30 (v0.3.1)**
   - `docker-compose start/stop` 기반의 효율적인 컨테이너 일반 기동 프로세스 적용
   - 시스템 설정 관리를 위한 GNB 통합 및 `[ADM]` 환경 설정 모달 업데이트

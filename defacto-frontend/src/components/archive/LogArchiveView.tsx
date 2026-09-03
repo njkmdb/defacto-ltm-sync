@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import Papa from 'papaparse';
 import { Calendar, Trash2, XCircle, LayoutGrid, List as ListIcon, Plus, Download, UploadCloud, ChevronLeft, ChevronRight, Search, X, AlertCircle, Edit2, User, FileText, ListTodo, RefreshCw, Save, Sparkles, Database } from 'lucide-react';
-import { getEventLogs, saveContextSummary, deleteEventLog, deleteBulkEventLogs, bulkUpsertEventLogs } from '@/lib/api/archive';
+import { getEventLog, getEventLogs, saveContextSummary, deleteEventLog, deleteBulkEventLogs, bulkUpsertEventLogs } from '@/lib/api/archive';
 import useLocaleFormatter from '@/hooks/useLocaleFormatter';
 import ArchiveModals from './ArchiveModals';
 import ArchiveSearchConditions, { SearchCondition } from './ArchiveSearchConditions';
@@ -25,6 +25,10 @@ export default function LogArchiveView() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { formatDateOnly } = useLocaleFormatter();
+  const searchParams = useSearchParams();
+
+  const focusId = searchParams.get('focusId');
+  const entityIdParam = searchParams.get('entityId');
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -42,6 +46,24 @@ export default function LogArchiveView() {
   const [previewErrors, setPreviewErrors] = useState(0);
 
   const [formData, setFormData] = useState({ base_entity_id: '' as string | number, log_date: new Date().toISOString().split('T')[0], llm_summary: '', action_items: [] as any[] });
+
+  // 💡 라우팅을 통한 모달 자동 개방 로직
+  useEffect(() => {
+    if (focusId && entityIdParam) {
+      getEventLog(Number(focusId), Number(entityIdParam)).then(res => {
+        const log = res.data;
+        setSelectedLogId(log.log_id);
+        setFormData({ base_entity_id: log.base_entity_id, log_date: log.log_date, llm_summary: log.llm_summary, action_items: log.action_items || [] });
+        setIsModalOpen(true);
+        
+        // Clean-up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }).catch(err => {
+        console.error(err);
+      });
+    }
+  }, [focusId, entityIdParam]);
 
   const { data: logsData, isLoading } = useQuery({
     queryKey: ['eventLogs', page, limit, startDate, endDate, appliedConditions],

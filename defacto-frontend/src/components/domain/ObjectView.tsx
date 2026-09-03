@@ -8,7 +8,8 @@ import { Search, Plus, Trash2, Download, UploadCloud, XCircle, ChevronLeft, Chev
 import { getObjects, createObject, updateObject, deleteBulkObjects, getObjectTypes, bulkUpsertObjects, getStatusOptions } from '@/lib/api/master';
 import DomainSearchConditions, { SearchCondition } from './DomainSearchConditions';
 import DomainDataTable from './DomainDataTable';
-import DomainModals from './DomainModals';
+import BulkPreviewModal from './BulkPreviewModal';
+import DomainEditModal from './DomainEditModal';
 
 const getPageNumbers = (current: number, total: number) => {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
@@ -31,12 +32,11 @@ export default function ObjectView() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [editModalData, setEditModalData] = useState<any | null>(null);
+  
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [previewErrors, setPreviewErrors] = useState(0);
-
-  const [formData, setFormData] = useState({ id: '' as string | number, name: '', type: '', parent_id: '' as string | number, status_id: 1, aliases: '', attributes: [] as {key: string, value: string}[], ne_ts: '', up_ts: '' });
 
   const { data: objectTypesData } = useQuery({ queryKey: ['objectTypes'], queryFn: getObjectTypes });
   const { data: statusOptionsData } = useQuery({ queryKey: ['statusOptions', 'OBJECT'], queryFn: () => getStatusOptions('OBJECT') });
@@ -88,17 +88,6 @@ export default function ObjectView() {
     });
   };
 
-  const handleSave = () => {
-    if (!formData.name.trim() || !formData.type.trim()) return alert(t('alert_name_type_req'));
-    const finalAttributes: Record<string, any> = {};
-    formData.attributes.forEach(a => { if (a.key.trim()) finalAttributes[a.key.trim()] = a.value; });
-    const aliasList = formData.aliases.split(',').map(s => s.trim()).filter(Boolean);
-    if (aliasList.length > 0) finalAttributes['aliases'] = aliasList;
-    
-    const payload = { object_id: formData.id ? Number(formData.id) : null, object_name: formData.name, object_type: formData.type.toUpperCase(), parent_object_id: formData.parent_id ? Number(formData.parent_id) : null, object_status_id: formData.status_id, attributes: finalAttributes };
-    selectedId ? updateMut.mutate({ id: selectedId, data: payload }) : createMut.mutate(payload);
-  };
-
   return (
     <>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6 flex flex-col gap-5">
@@ -117,7 +106,7 @@ export default function ObjectView() {
               <>
                 <input type="file" ref={fileInputRef} accept=".csv, .tsv" onChange={handleFileUpload} className="hidden" />
                 <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 hover:bg-emerald-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5"><UploadCloud className="w-4 h-4" /> {t('btn_upload')}</button>
-                <button onClick={() => { setSelectedId(null); setFormData({ id: '', name: '', type: '', parent_id: '', status_id: 1, aliases: '', attributes: [], ne_ts: '', up_ts: '' }); setIsModalOpen(true); }} className="bg-emerald-600 hover:bg-emerald-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-md flex items-center gap-1.5"><Plus className="w-4 h-4" /> {t('btn_register')}</button>
+                <button onClick={() => { setEditModalData(null); setIsModalOpen(true); }} className="bg-emerald-600 hover:bg-emerald-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-md flex items-center gap-1.5"><Plus className="w-4 h-4" /> {t('btn_register')}</button>
               </>
             ) : (
               <>
@@ -138,7 +127,7 @@ export default function ObjectView() {
            openEditModal={(row: any) => {
               const aliases = Array.isArray(row.attributes?.aliases) ? row.attributes.aliases.join(', ') : '';
               const attrs = Object.entries(row.attributes || {}).filter(([k]) => k !== 'aliases').map(([k, v]) => ({ key: k, value: String(v) }));
-              setSelectedId(row.object_id); setFormData({ id: row.object_id, name: row.object_name, type: row.object_type, parent_id: row.parent_object_id || '', status_id: row.object_status_id || 1, aliases, attributes: attrs, ne_ts: row.ne_ts, up_ts: row.up_ts });
+              setEditModalData({ id: row.object_id, name: row.object_name, type: row.object_type, parent_id: row.parent_object_id || '', status_id: row.object_status_id || 1, aliases, attributes: attrs, ne_ts: row.ne_ts, up_ts: row.up_ts });
               setIsModalOpen(true);
            }}
         />
@@ -160,16 +149,28 @@ export default function ObjectView() {
         </div>
       )}
 
-      <DomainModals 
+      <BulkPreviewModal 
         activeTab="OBJECT"
-        isPreviewOpen={isPreviewOpen} setIsPreviewOpen={setIsPreviewOpen}
-        previewData={previewData} previewErrors={previewErrors}
-        handleBulkUpsertConfirm={() => { if(previewErrors === 0) bulkUpsertMut.mutate(previewData.map(item => ({ object_id: item.id, object_type: item.type.toUpperCase(), object_name: item.name, parent_object_id: item.parent_id, attributes: item.attributes }))); }}
-        isPending={bulkUpsertMut.isPending || createMut.isPending || updateMut.isPending}
-        isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen}
-        selectedId={selectedId} formData={formData} setFormData={setFormData}
-        handleSave={handleSave} handleDeleteStatus={() => {}} deleteStatusMutPending={false}
-        currentFilterTypes={currentFilterTypes} statusOptionsData={statusOptionsData}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        previewData={previewData}
+        previewErrors={previewErrors}
+        onConfirm={() => { if(previewErrors === 0) bulkUpsertMut.mutate(previewData.map(item => ({ object_id: item.id, object_type: item.type.toUpperCase(), object_name: item.name, parent_object_id: item.parent_id, attributes: item.attributes }))); }}
+        isPending={bulkUpsertMut.isPending}
+      />
+
+      <DomainEditModal
+        activeTab="OBJECT"
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        initialData={editModalData}
+        onSave={(data) => {
+            const payload = { object_id: data.id ? Number(data.id) : null, object_name: data.name, object_type: data.type.toUpperCase(), parent_object_id: data.parent_id ? Number(data.parent_id) : null, object_status_id: data.status_id, attributes: data.finalAttributes };
+            editModalData ? updateMut.mutate({ id: Number(data.id), data: payload }) : createMut.mutate(payload);
+        }}
+        isPending={createMut.isPending || updateMut.isPending}
+        currentFilterTypes={currentFilterTypes}
+        statusOptionsData={statusOptionsData}
       />
     </>
   );

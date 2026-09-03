@@ -1,17 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { Archive } from 'lucide-react';
 import LogArchiveView from '@/components/archive/LogArchiveView';
 import BriefingArchiveView from '@/components/archive/BriefingArchiveView';
 
-export default function ArchivePage() {
+function ArchiveContent() {
   const t = useTranslations('Archive');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  
   const [archiveTab, setArchiveTab] = useState<'LOGS' | 'BRIEFINGS'>('LOGS');
 
+  useEffect(() => {
+    if (tabParam === 'LOGS' || tabParam === 'BRIEFINGS') {
+      setArchiveTab(tabParam as 'LOGS' | 'BRIEFINGS');
+    }
+  }, [tabParam]);
+
   return (
-    <main className="min-h-screen bg-gray-50 p-8 text-gray-800 relative pb-20">
+    <>
       <header className="mb-6 flex items-center justify-between border-b border-gray-200 pb-4 shrink-0">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
@@ -39,6 +49,18 @@ export default function ArchivePage() {
 
       {archiveTab === 'LOGS' && <LogArchiveView />}
       {archiveTab === 'BRIEFINGS' && <BriefingArchiveView />}
+    </>
+  );
+}
+
+export default function ArchivePage() {
+  const t = useTranslations('Archive');
+
+  return (
+    <main className="min-h-screen bg-gray-50 p-8 text-gray-800 relative pb-20">
+      <Suspense fallback={<div className="p-20 text-center font-bold text-gray-400">{t('state_loading')}</div>}>
+        <ArchiveContent />
+      </Suspense>
     </main>
   );
 }

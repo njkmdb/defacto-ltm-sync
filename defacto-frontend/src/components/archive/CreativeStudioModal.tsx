@@ -7,6 +7,7 @@ import { X, Sparkles, RefreshCw, Save, Download, FileText, Wand2, Type, Database
 import { generateCreativeContent, generateMetaPrompt, saveCreativeContent } from '@/lib/api/pipeline';
 import { getPrompts, createPrompt } from '@/lib/api/prompt';
 import { PromptItem } from '@/types/api';
+import useSourceTracker from '@/hooks/useSourceTracker';
 
 interface CreativeStudioModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface CreativeStudioModalProps {
 export default function CreativeStudioModal({ isOpen, onClose, sourceType, sourceId, baseEntityId, sourceContent }: CreativeStudioModalProps) {
   const t = useTranslations('Studio');
   const queryClient = useQueryClient();
+  const { trackSource } = useSourceTracker();
   const [activeTone, setActiveTone] = useState<string>('');
   const [systemPrompt, setSystemPrompt] = useState<string>('');
   const [userIntent, setUserIntent] = useState<string>('');
@@ -123,9 +125,9 @@ export default function CreativeStudioModal({ isOpen, onClose, sourceType, sourc
           </div>
           <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-3">
             <div className="flex items-center gap-2">
-               <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded border inline-flex items-center shadow-sm">
+               <button onClick={() => trackSource(sourceType, sourceId, baseEntityId)} className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded border inline-flex items-center shadow-sm hover:bg-gray-100 cursor-pointer transition-colors">
                  <FileText className="w-3 h-3 mr-1"/> {sourceType} #{sourceId}
-               </span>
+               </button>
                <span className="text-[10px] font-bold text-gray-400 bg-gray-200 px-2 py-1 rounded">Entity ID: {baseEntityId}</span>
             </div>
             <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex-1">

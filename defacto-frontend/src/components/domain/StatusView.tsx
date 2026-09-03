@@ -8,7 +8,8 @@ import { Search, Plus, Trash2, UploadCloud, XCircle, ChevronLeft, ChevronRight, 
 import { getStatuses, createStatus, updateStatus, deleteStatus, deleteBulkStatuses, bulkUpsertStatuses } from '@/lib/api/master';
 import DomainSearchConditions, { SearchCondition } from './DomainSearchConditions';
 import DomainDataTable from './DomainDataTable';
-import DomainModals from './DomainModals';
+import BulkPreviewModal from './BulkPreviewModal';
+import StatusEditModal from './StatusEditModal';
 
 const getPageNumbers = (current: number, total: number) => {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
@@ -30,12 +31,11 @@ export default function StatusView() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [editModalData, setEditModalData] = useState<any | null>(null);
+  
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [previewErrors, setPreviewErrors] = useState(0);
-
-  const [formData, setFormData] = useState({ id: '' as string | number, name: '', type: 'ENTITY', is_active: true, ne_ts: '', up_ts: '', parent_id: '', aliases: '', attributes: [] as {key: string, value: string}[] });
 
   const currentFilterTypes = ['SYSTEM', 'ENTITY', 'OBJECT', 'TRANSACTION', 'WORKFLOW'];
   const { data: statusesData, isLoading } = useQuery({ queryKey: ['statuses', page, limit, typeFilter, appliedConditions], queryFn: () => getStatuses(page, limit, typeFilter, appliedConditions) });
@@ -45,7 +45,7 @@ export default function StatusView() {
 
   const createMut = useMutation({ mutationFn: createStatus, onSuccess: () => handleSuccess(t('alert_save_success')), onError: handleError });
   const updateMut = useMutation({ mutationFn: ({ id, data }: { id: number, data: any }) => updateStatus(id, data), onSuccess: () => handleSuccess(t('alert_update_success')), onError: handleError });
-  const deleteMut = useMutation({ mutationFn: deleteStatus, onSuccess: () => { handleSuccess(t('alert_del_success')); setSelectedId(null); setIsModalOpen(false); }, onError: handleError });
+  const deleteMut = useMutation({ mutationFn: deleteStatus, onSuccess: () => { handleSuccess(t('alert_del_success')); setEditModalData(null); setIsModalOpen(false); }, onError: handleError });
   const bulkDeleteMut = useMutation({ mutationFn: deleteBulkStatuses, onSuccess: () => { handleSuccess(t('alert_bulk_del_success')); setSelectedIds([]); }, onError: handleError });
   const bulkUpsertMut = useMutation({ mutationFn: bulkUpsertStatuses, onSuccess: () => handleSuccess(t('alert_bulk_upsert_success')), onError: handleError });
 
@@ -79,14 +79,6 @@ export default function StatusView() {
     });
   };
 
-  const handleSave = () => {
-    if (!formData.name.trim() || !formData.type.trim() || !formData.id) return alert(t('alert_id_name_cat_req'));
-    const finalAttributes: Record<string, any> = {};
-    formData.attributes.forEach(a => { if (a.key.trim()) finalAttributes[a.key.trim()] = a.value; });
-    const payload = { status_id: Number(formData.id), domain_category: formData.type.toUpperCase(), status_name: formData.name, attributes: finalAttributes, is_active: formData.is_active };
-    selectedId ? updateMut.mutate({ id: selectedId, data: payload }) : createMut.mutate(payload);
-  };
-
   return (
     <>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6 flex flex-col gap-5">
@@ -102,7 +94,7 @@ export default function StatusView() {
           </div>
           <div className="flex items-center gap-3 mt-7">
             {selectedIds.length === 0 ? (
-              <><input type="file" ref={fileInputRef} accept=".csv, .tsv" onChange={handleFileUpload} className="hidden" /><button onClick={() => fileInputRef.current?.click()} className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5"><UploadCloud className="w-4 h-4" /> {t('btn_upload')}</button><button onClick={() => { setSelectedId(null); setFormData({ id: '', name: '', type: 'ENTITY', parent_id: '', aliases: '', attributes: [], is_active: true, ne_ts: '', up_ts: '' }); setIsModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-md flex items-center gap-1.5"><Plus className="w-4 h-4" /> {t('btn_register')}</button></>
+              <><input type="file" ref={fileInputRef} accept=".csv, .tsv" onChange={handleFileUpload} className="hidden" /><button onClick={() => fileInputRef.current?.click()} className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5"><UploadCloud className="w-4 h-4" /> {t('btn_upload')}</button><button onClick={() => { setEditModalData(null); setIsModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-4 py-1.5 h-10 rounded-lg text-sm font-bold shadow-md flex items-center gap-1.5"><Plus className="w-4 h-4" /> {t('btn_register')}</button></>
             ) : (
               <><button onClick={() => confirm(t('confirm_bulk_delete')) && bulkDeleteMut.mutate(selectedIds)} disabled={bulkDeleteMut.isPending} className="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 h-10 rounded-lg font-bold shadow-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"><Trash2 className="w-4 h-4" /> {t('btn_delete', { count: selectedIds.length })}</button></>
             )}
@@ -118,7 +110,8 @@ export default function StatusView() {
            selectedIds={selectedIds} toggleSelectAll={toggleSelectAll} toggleSelect={toggleSelect}
            openEditModal={(row: any) => {
               const attrs = Object.entries(row.attributes || {}).map(([k, v]) => ({ key: k, value: String(v) }));
-              setSelectedId(row.status_id); setFormData({ id: row.status_id, name: row.status_name, type: row.domain_category, parent_id: '', aliases: '', attributes: attrs, is_active: row.is_active, ne_ts: row.ne_ts, up_ts: row.up_ts }); setIsModalOpen(true);
+              setEditModalData({ id: row.status_id, name: row.status_name, type: row.domain_category, attributes: attrs, is_active: row.is_active, ne_ts: row.ne_ts, up_ts: row.up_ts });
+              setIsModalOpen(true);
            }}
         />
       </div>
@@ -139,16 +132,27 @@ export default function StatusView() {
         </div>
       )}
 
-      <DomainModals 
+      <BulkPreviewModal 
         activeTab="STATUS"
-        isPreviewOpen={isPreviewOpen} setIsPreviewOpen={setIsPreviewOpen}
-        previewData={previewData} previewErrors={previewErrors}
-        handleBulkUpsertConfirm={() => { if(previewErrors === 0) bulkUpsertMut.mutate(previewData.map(item => ({ status_id: item.id, domain_category: item.type.toUpperCase(), status_name: item.name, attributes: item.attributes, is_active: item.is_active }))); }}
-        isPending={bulkUpsertMut.isPending || createMut.isPending || updateMut.isPending}
-        isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen}
-        selectedId={selectedId} formData={formData} setFormData={setFormData}
-        handleSave={handleSave} handleDeleteStatus={() => { if(selectedId && confirm(t('modal_confirm_del'))) deleteMut.mutate(selectedId); }} deleteStatusMutPending={deleteMut.isPending}
-        currentFilterTypes={currentFilterTypes} statusOptionsData={{data: []}}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        previewData={previewData}
+        previewErrors={previewErrors}
+        onConfirm={() => { if(previewErrors === 0) bulkUpsertMut.mutate(previewData.map(item => ({ status_id: item.id, domain_category: item.type.toUpperCase(), status_name: item.name, attributes: item.attributes, is_active: item.is_active }))); }}
+        isPending={bulkUpsertMut.isPending}
+      />
+
+      <StatusEditModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        initialData={editModalData}
+        onSave={(data) => {
+            const payload = { status_id: Number(data.id), domain_category: data.type.toUpperCase(), status_name: data.name, attributes: data.finalAttributes, is_active: data.is_active };
+            editModalData ? updateMut.mutate({ id: Number(data.id), data: payload }) : createMut.mutate(payload);
+        }}
+        isPending={createMut.isPending || updateMut.isPending}
+        onDelete={(id) => { if(confirm(t('modal_confirm_del'))) deleteMut.mutate(id); }}
+        isDeletePending={deleteMut.isPending}
       />
     </>
   );

@@ -15,13 +15,15 @@ from database.models import EventRawSource, EventRaw
 from schemas.api_schemas import StructureEventsRequest
 from services import pipeline_service
 
-# 👇 [추가] 
 from services.system_service import get_dynamic_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/media", tags=["Media Pipeline"])
 
 UPLOAD_BASE_DIR = os.getenv("UPLOAD_DIR", "./uploads_nvme")
+
+# 💡 모듈 레벨 캐싱 변수: 네트워크 지연 방지용
+_cached_media_model = None
 
 def get_target_language(
     accept_language: Optional[str] = Header(None),
@@ -37,17 +39,39 @@ def get_target_language(
     return "Korean"
 
 async def extract_text_from_media(file_path: str, source_type: str) -> str:
+    global _cached_media_model
     logger.info(f"🚀 Gemini 멀티모달 텍스트 추출 엔진 가동 중... (Type: {source_type}, File: {file_path})")
     
-    # 💡 하드코딩된 변수 대신, 호출 시점에 동적 설정값을 불러옵니다.
     settings = get_dynamic_settings()
     api_key = settings.get("GEMINI_API_KEY")
-    model_name = settings.get("MODEL_NAME", "gemini-2.5-flash")
+    model_name = settings.get("MODEL_NAME", "auto")
     
     if not api_key:
         raise ValueError("GEMINI_API_KEY가 설정되지 않아 AI 추출을 수행할 수 없습니다.")
         
     gemini_client = genai.Client(api_key=api_key)
+    
+    # 💡 [하드코딩 멸종] "auto"일 경우 방어적 동적 탐색 로직 (generateContent 지원 모델 필터링)
+    if model_name == "auto" or not model_name:
+        if not _cached_media_model:
+            try:
+                valid_models = []
+                for m in gemini_client.models.list():
+                    methods = getattr(m, 'supported_generation_methods', [])
+                    # 멀티모달 텍스트 추출을 위해 generateContent 메서드를 지원하는 flash 모델만 필터링
+                    if 'generateContent' in methods and 'flash' in m.name.lower() and 'vision' not in m.name.lower():
+                        valid_models.append(m.name)
+                
+                if valid_models:
+                    # 버전명 기준 내림차순 정렬하여 최상위 최신 모델 추출
+                    _cached_media_model = sorted(valid_models, reverse=True)[0]
+                else:
+                    _cached_media_model = "gemini-3.5-flash"
+            except Exception as e:
+                logger.warning(f"멀티모달 모델 동적 탐색 실패, 기본 모델로 폴백합니다: {e}")
+                _cached_media_model = "gemini-3.5-flash"
+        
+        model_name = _cached_media_model
     
     try:
         if source_type == "AUDIO":

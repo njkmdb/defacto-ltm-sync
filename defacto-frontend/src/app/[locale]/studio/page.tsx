@@ -11,7 +11,7 @@ function StudioContent() {
   const t = useTranslations('Studio');
   const searchParams = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname(); // 💡 다국어 라우팅을 위해 추가
+  const pathname = usePathname(); 
   
   const [activeTab, setActiveTab] = useState<'WORKSPACE' | 'ARCHIVE'>('WORKSPACE');
 
@@ -19,6 +19,7 @@ function StudioContent() {
   const sourceType = searchParams.get('sourceType') as 'LOG' | 'BRIEFING' | 'CREATION' | null;
   const sourceId = searchParams.get('sourceId') ? Number(searchParams.get('sourceId')) : null;
   const baseEntityId = searchParams.get('baseEntityId') ? Number(searchParams.get('baseEntityId')) : null;
+  const tabParam = searchParams.get('tab');
 
   let initialSources: { type: 'LOG' | 'BRIEFING' | 'CREATION'; id: number; baseEntityId: number }[] = [];
   if (sourcesParam) {
@@ -35,11 +36,13 @@ function StudioContent() {
   useEffect(() => {
     if (initialSources.length > 0) {
       setActiveTab('WORKSPACE');
+    } else if (tabParam === 'ARCHIVE') {
+      setActiveTab('ARCHIVE');
     }
-  }, [sourcesParam, sourceType, sourceId]);
+  }, [sourcesParam, sourceType, sourceId, tabParam]);
 
   const clearParamsAndNavigateArchive = () => {
-    router.replace(pathname); // 💡 하드코딩된 '/studio' 대신 현재의 다국어 유지 경로 사용
+    router.replace(pathname); 
     setActiveTab('ARCHIVE');
   };
 
