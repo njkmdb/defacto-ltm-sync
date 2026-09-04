@@ -16,9 +16,8 @@ logging.basicConfig(level=logging.INFO)
 # 환경 변수 로드
 load_dotenv()
 
-# 로컬 DB 연결 설정 (유저님의 실제 로컬 DB 정보에 맞게 수정해주세요)
-# 예: "postgresql://erp_admin:password@localhost:5432/defacto_db"
-DB_URL = "postgresql://erp_admin:datastream_pass@localhost:5432/defacto_db"
+# 로컬 DB 연결 설정 (환경변수에서 읽어오도록 변경하여 보안 강화)
+DB_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/dbname")
 engine = create_engine(DB_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

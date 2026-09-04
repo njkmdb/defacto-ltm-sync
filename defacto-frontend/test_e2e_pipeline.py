@@ -1,11 +1,16 @@
+import os
 import asyncio
 import httpx
 import time
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-DB_URL = "postgresql://erp_admin:erp_password@localhost:5432/defacto_db"
-API_BASE_URL = "http://localhost:8080/api/v1/core"
+# 환경 변수 로드
+load_dotenv()
+
+DB_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/dbname")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080/api/v1/core")
 
 engine = create_engine(DB_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

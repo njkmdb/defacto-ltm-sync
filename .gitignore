@@ -1,5 +1,12 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# 환경 변수 (DB 크리덴셜, API Key 등)
+.env
+.env.local
+
+# 미디어 스토리지 마운트 포인트
+uploads_nvme/
+
 # dependencies
 node_modules/
 .pnp/
