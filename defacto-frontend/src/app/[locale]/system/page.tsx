@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { Database, Search, Table2, Layers, Server, RefreshCw, ChevronLeft, ChevronRight, Hash, Plus, X, XCircle } from 'lucide-react';
@@ -32,6 +32,41 @@ export default function SystemDataExplorerPage() {
   const [appliedConditions, setAppliedConditions] = useState<SearchCondition[]>([]);
 
   const [selectedRowData, setSelectedRowData] = useState<any | null>(null);
+
+  // --- Drag and Drop State ---
+  const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
+  const [isModalDragging, setIsModalDragging] = useState(false);
+  const modalDragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!selectedRowData) setModalPos({ x: 0, y: 0 });
+  }, [selectedRowData]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isModalDragging) return;
+      setModalPos({
+        x: modalDragStart.current.posX + (e.clientX - modalDragStart.current.x),
+        y: modalDragStart.current.posY + (e.clientY - modalDragStart.current.y)
+      });
+    };
+    const handleMouseUp = () => { if (isModalDragging) setIsModalDragging(false); };
+    if (isModalDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isModalDragging]);
+
+  const handleModalMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsModalDragging(true);
+    modalDragStart.current = { x: e.clientX, y: e.clientY, posX: modalPos.x, posY: modalPos.y };
+  };
+  // ---------------------------
 
   const { data: tablesData, isLoading: isTablesLoading } = useQuery({
     queryKey: ['systemTables', activeSchema],
@@ -294,12 +329,26 @@ export default function SystemDataExplorerPage() {
 
       {selectedRowData && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-2xl w-[800px] max-w-full max-h-[85vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden">
-            <div className="p-5 border-b border-gray-200 bg-gray-900 flex items-center justify-between shrink-0">
-              <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+          <div 
+            className="bg-white rounded-2xl flex flex-col shadow-2xl border border-gray-200 overflow-hidden relative"
+            style={{
+              transform: `translate(${modalPos.x}px, ${modalPos.y}px)`,
+              width: '800px',
+              minWidth: '500px',
+              height: '80vh',
+              minHeight: '400px',
+              maxHeight: '90vh',
+              resize: 'both'
+            }}
+          >
+            <div 
+              className="p-5 border-b border-gray-200 bg-gray-900 flex items-center justify-between shrink-0 cursor-move select-none"
+              onMouseDown={handleModalMouseDown}
+            >
+              <h2 className="text-xl font-extrabold text-white flex items-center gap-2 pointer-events-none">
                 <Database className="w-5 h-5 text-teal-400"/> {t('modal_title')}
               </h2>
-              <button onClick={() => setSelectedRowData(null)} className="text-gray-400 hover:text-white transition-colors">
+              <button onClick={() => setSelectedRowData(null)} className="text-gray-400 hover:text-white transition-colors cursor-pointer">
                 <X className="w-6 h-6" />
               </button>
             </div>

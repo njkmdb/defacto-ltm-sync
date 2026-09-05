@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Settings, X, Save, RefreshCw, Key, Box } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSystemSettings, updateSystemSettings } from '@/lib/api/systemApi';
@@ -56,6 +56,48 @@ export default function AdminMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
+
+  // --- Drag and Drop State ---
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isOpen) setPosition({ x: 0, y: 0 });
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const deltaX = e.clientX - dragStart.current.x;
+      const deltaY = e.clientY - dragStart.current.y;
+      setPosition({
+        x: dragStart.current.posX + deltaX,
+        y: dragStart.current.posY + deltaY
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, posX: position.x, posY: position.y };
+  };
+  // ---------------------------
   
   const { data, isLoading } = useQuery({
     queryKey: ['systemSettings'],
@@ -92,18 +134,31 @@ export default function AdminMenu() {
 
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-[500px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-5 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-              <div>
+          <div 
+            className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col relative"
+            style={{
+              transform: `translate(${position.x}px, ${position.y}px)`,
+              width: '500px',
+              minWidth: '350px',
+              minHeight: '350px',
+              maxHeight: '90vh',
+              resize: 'both'
+            }}
+          >
+            <div 
+              className="p-5 border-b border-gray-200 bg-gray-50 flex items-center justify-between shrink-0 cursor-move select-none"
+              onMouseDown={handleMouseDown}
+            >
+              <div className="pointer-events-none">
                 <h2 className="text-lg font-extrabold text-gray-800 flex items-center gap-2">
                   <Settings className="w-5 h-5 text-indigo-600" /> {t.title}
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">{t.desc}</p>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1"><X className="w-5 h-5"/></button>
+              <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 cursor-pointer"><X className="w-5 h-5"/></button>
             </div>
             
-            <div className="p-6 flex flex-col gap-5">
+            <div className="p-6 flex-1 overflow-y-auto flex flex-col gap-5">
               {isLoading ? (
                 <div className="flex justify-center py-10"><RefreshCw className="w-6 h-6 animate-spin text-indigo-500" /></div>
               ) : (
@@ -132,7 +187,7 @@ export default function AdminMenu() {
               )}
             </div>
 
-            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 shrink-0">
               <button onClick={() => setIsOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition-colors">{t.cancel}</button>
               <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md transition-colors disabled:opacity-50">
                 {saveMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} {t.save}

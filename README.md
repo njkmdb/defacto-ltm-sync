@@ -242,6 +242,9 @@ Isolates API pipeline logic into 'Node (Module)' units, orchestrated by the **`P
 
 ## 5. Changelog
 
+* **2026.09.05 (v0.3.3)**
+  - Introduction of a personalized AI Guide Bot and global feature integration (including chat state retention upon F5 refresh)
+
 * **2026.09.04 (v0.3.2)**
   - Supported LRSE v0.4.0 stateless architecture (integrated dynamic schema routing)
   - Lightened the project by removing unnecessary scaffolding files (template.py) and orphan components (DomainModals.tsx)

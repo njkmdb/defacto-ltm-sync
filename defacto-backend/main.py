@@ -13,15 +13,14 @@ from routers.dashboard_router import router as dashboard_router
 from routers.creative_router import router as creative_router  
 from routers.system_router import router as system_router
 from routers.pipeline_builder_router import router as pipeline_builder_router
+from routers.chat_router import router as chat_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from services.scheduler_service import scheduler, run_ext_sync_job
-    # 💡 서버 기동 시 스케줄러 시작 (10분 주기 배치)
     scheduler.add_job(run_ext_sync_job, 'interval', minutes=10, id='ext_sync_job', replace_existing=True)
     scheduler.start()
     yield
-    # 💡 서버 종료 시 스케줄러를 안전하게 종료하여 메모리 릭 방지
     scheduler.shutdown()
 
 app = FastAPI(title="Defacto LTM-Sync API", lifespan=lifespan)
@@ -51,3 +50,4 @@ app.include_router(dashboard_router)
 app.include_router(creative_router)  
 app.include_router(system_router)
 app.include_router(pipeline_builder_router)
+app.include_router(chat_router)

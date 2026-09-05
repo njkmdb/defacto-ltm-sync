@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { X, RefreshCw, FileText, AlertTriangle, Lightbulb, CheckSquare, Download, Database } from 'lucide-react';
@@ -27,6 +27,48 @@ export default function EventBriefingModal({ isOpen, onClose, selectedMemoryIds,
   const [keyFindings, setKeyFindings] = useState('');
   const [risks, setRisks] = useState('');
   const [actions, setActions] = useState('');
+
+  // --- Drag and Drop State ---
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isOpen) setPosition({ x: 0, y: 0 }); // 닫힐 때 위치 초기화
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const deltaX = e.clientX - dragStart.current.x;
+      const deltaY = e.clientY - dragStart.current.y;
+      setPosition({
+        x: dragStart.current.posX + deltaX,
+        y: dragStart.current.posY + deltaY
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, posX: position.x, posY: position.y };
+  };
+  // ---------------------------
 
   const generateMut = useMutation({
     mutationFn: async () => await generateEventBriefing({ query_text: queryText, selected_memory_ids: selectedMemoryIds, base_entity_id: baseEntityId }),
@@ -83,13 +125,26 @@ export default function EventBriefingModal({ isOpen, onClose, selectedMemoryIds,
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-50 rounded-2xl w-[900px] max-w-full max-h-full flex flex-col shadow-2xl border border-gray-200 overflow-hidden">
-        <div className="bg-gray-900 p-5 flex items-center justify-between shrink-0">
-          <div className="text-white">
+      <div 
+        className="bg-gray-50 rounded-2xl flex flex-col shadow-2xl border border-gray-200 overflow-hidden relative"
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px)`,
+          width: '900px',
+          minWidth: '500px',
+          height: '90vh',
+          minHeight: '400px',
+          resize: 'both'
+        }}
+      >
+        <div 
+          className="bg-gray-900 p-5 flex items-center justify-between shrink-0 cursor-move select-none"
+          onMouseDown={handleMouseDown}
+        >
+          <div className="text-white pointer-events-none">
             <h2 className="text-xl font-extrabold flex items-center gap-2"><FileText className="w-5 h-5 text-purple-400" /> {t('modal_title')}</h2>
             <p className="text-xs text-gray-400 mt-1">{t('modal_subtitle', { count: selectedMemoryIds.length })}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors cursor-pointer"><X className="w-6 h-6" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-white space-y-6">

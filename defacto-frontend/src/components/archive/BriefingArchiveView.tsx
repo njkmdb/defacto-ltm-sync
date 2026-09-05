@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -44,6 +44,48 @@ export default function BriefingArchiveView() {
   const [activeModalTab, setActiveModalTab] = useState<'EDIT' | 'AUDIT'>('EDIT');
   const [editFormData, setEditFormData] = useState({ query_text: '', executive_summary: '', key_findings: '', risk_and_warnings: '', recommended_actions: '' });
 
+  // --- Drag and Drop State ---
+  const [viewerPos, setViewerPos] = useState({ x: 0, y: 0 });
+  const [isViewerDragging, setIsViewerDragging] = useState(false);
+  const viewerDragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isBriefingViewerOpen) setViewerPos({ x: 0, y: 0 });
+  }, [isBriefingViewerOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isViewerDragging) return;
+      const deltaX = e.clientX - viewerDragStart.current.x;
+      const deltaY = e.clientY - viewerDragStart.current.y;
+      setViewerPos({
+        x: viewerDragStart.current.posX + deltaX,
+        y: viewerDragStart.current.posY + deltaY
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isViewerDragging) setIsViewerDragging(false);
+    };
+
+    if (isViewerDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isViewerDragging]);
+
+  const handleViewerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsViewerDragging(true);
+    viewerDragStart.current = { x: e.clientX, y: e.clientY, posX: viewerPos.x, posY: viewerPos.y };
+  };
+  // ---------------------------
+
   const openEditModal = (briefing: any) => {
     setSelectedBriefing(briefing);
     setActiveModalTab('EDIT');
@@ -57,14 +99,12 @@ export default function BriefingArchiveView() {
     setIsBriefingViewerOpen(true);
   };
 
-  // 💡 라우팅을 통한 모달 자동 개방 로직
   useEffect(() => {
     if (focusId && entityIdParam) {
       getEventBriefing(Number(focusId), Number(entityIdParam)).then(res => {
         const briefing = res.data;
         openEditModal(briefing);
         
-        // Clean-up URL
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
       }).catch(err => {
@@ -289,26 +329,40 @@ export default function BriefingArchiveView() {
 
       {isBriefingViewerOpen && selectedBriefing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-50 rounded-2xl w-[900px] max-w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden">
-            <div className="bg-gray-900 px-5 pt-5 pb-0 flex flex-col shrink-0 gap-4">
-              <div className="flex items-center justify-between">
+          <div 
+            className="bg-gray-50 rounded-2xl flex flex-col shadow-2xl border border-gray-200 overflow-hidden relative"
+            style={{
+              transform: `translate(${viewerPos.x}px, ${viewerPos.y}px)`,
+              width: '900px',
+              minWidth: '600px',
+              height: '85vh',
+              minHeight: '500px',
+              maxHeight: '95vh',
+              resize: 'both'
+            }}
+          >
+            <div 
+              className="bg-gray-900 px-5 pt-5 pb-0 flex flex-col shrink-0 gap-4 cursor-move select-none"
+              onMouseDown={handleViewerMouseDown}
+            >
+              <div className="flex items-center justify-between pointer-events-none">
                 <div className="text-white">
                   <h2 className="text-xl font-extrabold flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-400" /> {t('briefing_viewer_title')}</h2>
                   <p className="text-xs text-gray-400 mt-1">{t('briefing_viewer_subtitle', { id: selectedBriefing.briefing_id, entity_id: selectedBriefing.base_entity_id })}</p>
                 </div>
-                <button onClick={() => setIsBriefingViewerOpen(false)} className="text-gray-400 hover:text-white transition-colors p-1.5"><X className="w-6 h-6" /></button>
+                <button onClick={() => setIsBriefingViewerOpen(false)} className="text-gray-400 hover:text-white transition-colors p-1.5 cursor-pointer pointer-events-auto"><X className="w-6 h-6" /></button>
               </div>
               
               <div className="flex gap-1">
                 <button 
-                  onClick={() => setActiveModalTab('EDIT')} 
-                  className={`px-5 py-2.5 text-sm font-bold rounded-t-xl transition-colors ${activeModalTab === 'EDIT' ? 'bg-white text-indigo-700' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                  onClick={(e) => { e.stopPropagation(); setActiveModalTab('EDIT'); }} 
+                  className={`px-5 py-2.5 text-sm font-bold rounded-t-xl transition-colors cursor-pointer pointer-events-auto ${activeModalTab === 'EDIT' ? 'bg-white text-indigo-700' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
                 >
                   {t('briefing_tab_edit')}
                 </button>
                 <button 
-                  onClick={() => setActiveModalTab('AUDIT')} 
-                  className={`px-5 py-2.5 text-sm font-bold rounded-t-xl transition-colors flex items-center gap-1.5 ${activeModalTab === 'AUDIT' ? 'bg-gray-100 text-emerald-700' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                  onClick={(e) => { e.stopPropagation(); setActiveModalTab('AUDIT'); }} 
+                  className={`px-5 py-2.5 text-sm font-bold rounded-t-xl transition-colors flex items-center gap-1.5 cursor-pointer pointer-events-auto ${activeModalTab === 'AUDIT' ? 'bg-gray-100 text-emerald-700' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
                 >
                   <SearchCode className="w-4 h-4" /> {t('briefing_tab_audit')}
                 </button>

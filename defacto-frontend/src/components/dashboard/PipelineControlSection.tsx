@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'; 
 import { useTranslations } from 'next-intl';
 import { Play, RefreshCw, CheckCircle, XCircle, Clock, Plus, Trash2, Loader2, Filter, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'; 
@@ -34,6 +34,48 @@ export default function PipelineControlSection() {
   const [impactData, setImpactData] = useState<any>(null);
   const [targetDeleteRawId, setTargetDeleteRawId] = useState<number | null>(null);
   const [isImpactLoading, setIsImpactLoading] = useState(false);
+
+  // --- Drag and Drop State for Impact Modal ---
+  const [impactPos, setImpactPos] = useState({ x: 0, y: 0 });
+  const [isImpactDragging, setIsImpactDragging] = useState(false);
+  const impactDragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isImpactModalOpen) setImpactPos({ x: 0, y: 0 });
+  }, [isImpactModalOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isImpactDragging) return;
+      const deltaX = e.clientX - impactDragStart.current.x;
+      const deltaY = e.clientY - impactDragStart.current.y;
+      setImpactPos({
+        x: impactDragStart.current.posX + deltaX,
+        y: impactDragStart.current.posY + deltaY
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isImpactDragging) setIsImpactDragging(false);
+    };
+
+    if (isImpactDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isImpactDragging]);
+
+  const handleImpactMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsImpactDragging(true);
+    impactDragStart.current = { x: e.clientX, y: e.clientY, posX: impactPos.x, posY: impactPos.y };
+  };
+  // ------------------------------------------
 
   useEffect(() => {
     setPage(1);
@@ -230,37 +272,58 @@ export default function PipelineControlSection() {
       </div>
 
       {isImpactModalOpen && impactData && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100]">
-           <div className="bg-white p-6 rounded-2xl w-[600px] shadow-2xl">
-              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-6 h-6 text-amber-500" /> {t('pipe_impact_title')} (Raw ID: {targetDeleteRawId})
-              </h3>
-              {impactData.affected_count > 0 ? (
-                <div className="mb-4 bg-red-50 text-red-700 p-4 rounded-xl border border-red-200">
-                  <p className="font-bold mb-2">{t('pipe_impact_warn', { count: impactData.affected_count })}</p>
-                  <ul className="list-disc pl-5 text-sm space-y-1 max-h-32 overflow-y-auto">
-                     {impactData.affected_items.map((it: any, i: number) => (
-                        <li key={i}>[{it.item_type}] ID {it.item_id}: {it.title_or_summary}</li>
-                     ))}
-                  </ul>
-                </div>
-              ) : (
-                <p className="mb-4 text-emerald-700 bg-emerald-50 p-4 rounded-xl font-bold border border-emerald-200">
-                  {t('pipe_impact_safe')}
-                </p>
-              )}
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
-                 <label className="flex items-start gap-3 cursor-pointer">
-                    <input type="radio" checked readOnly className="mt-1 w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-bold text-gray-800">
-                       {t('pipe_impact_soft')}
-                       <span className="block text-xs font-normal text-gray-500 mt-1">
-                         {t('pipe_impact_soft_desc')}
-                       </span>
-                    </span>
-                 </label>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+           <div 
+             className="bg-white rounded-2xl flex flex-col shadow-2xl border border-gray-100 relative"
+             style={{
+               transform: `translate(${impactPos.x}px, ${impactPos.y}px)`,
+               width: '600px',
+               minWidth: '400px',
+               minHeight: '300px',
+               maxHeight: '90vh',
+               resize: 'both',
+               overflow: 'hidden'
+             }}
+           >
+              <div 
+                className="px-6 py-5 flex items-center justify-between border-b border-gray-100 shrink-0 cursor-move select-none"
+                onMouseDown={handleImpactMouseDown}
+              >
+                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 pointer-events-none">
+                  <AlertTriangle className="w-6 h-6 text-amber-500" /> {t('pipe_impact_title')} (Raw ID: {targetDeleteRawId})
+                </h3>
               </div>
-              <div className="flex justify-end gap-3">
+
+              <div className="p-6 flex-1 overflow-y-auto">
+                {impactData.affected_count > 0 ? (
+                  <div className="mb-4 bg-red-50 text-red-700 p-4 rounded-xl border border-red-200">
+                    <p className="font-bold mb-2">{t('pipe_impact_warn', { count: impactData.affected_count })}</p>
+                    <ul className="list-disc pl-5 text-sm space-y-1">
+                       {impactData.affected_items.map((it: any, i: number) => (
+                          <li key={i}>[{it.item_type}] ID {it.item_id}: {it.title_or_summary}</li>
+                       ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="mb-4 text-emerald-700 bg-emerald-50 p-4 rounded-xl font-bold border border-emerald-200">
+                    {t('pipe_impact_safe')}
+                  </p>
+                )}
+                
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                   <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="radio" checked readOnly className="mt-1 w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-bold text-gray-800">
+                         {t('pipe_impact_soft')}
+                         <span className="block text-xs font-normal text-gray-500 mt-1">
+                           {t('pipe_impact_soft_desc')}
+                         </span>
+                      </span>
+                   </label>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3 shrink-0 bg-white">
                  <button onClick={() => setIsImpactModalOpen(false)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">{tCommon('cancel')}</button>
                  <button onClick={() => {
                     if (targetDeleteRawId) deleteMutation.mutate(targetDeleteRawId);

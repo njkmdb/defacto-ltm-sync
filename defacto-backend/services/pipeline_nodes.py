@@ -12,7 +12,6 @@ from services.lrse_client import LRSEClient
 from services.prompt_manager import get_dynamic_prompt, SCHEMA_REGISTRY
 from services.synthesis_service import get_ext_data_text
 
-# 💡 EventFact 모델 임포트 추가
 from database.models import EventLog, EventMemory, EventFact
 
 logger = logging.getLogger(__name__)
@@ -51,24 +50,42 @@ class LTMSearchNode(BaseNode):
             target_object_id=target_object_id
         )
         
+        track1_list = results.get("track1", [])[:top_k]
+        track2_list = results.get("track2", [])[:top_k]
+
+        today_memories = db.query(EventMemory).filter(
+            EventMemory.base_entity_id == context.base_entity_id,
+            EventMemory.event_date == ref_date,
+            EventMemory.memory_type == 'LTM'
+        ).all()
+        
+        unique_memories = list({m.memory_id: m for m in today_memories}.values())
+
+        # [N+1 쿼리 최적화] 모든 source_event_ids를 수집하여 단일 쿼리로 Bulk Fetch
+        all_event_ids = set()
+        for m in (track1_list + track2_list + unique_memories):
+            ids = m.get('source_event_ids', []) if isinstance(m, dict) else getattr(m, 'source_event_ids', [])
+            if ids:
+                all_event_ids.update(ids)
+
+        fact_to_raw_map = {}
+        if all_event_ids:
+            facts = db.query(EventFact.event_id, EventFact.raw_id).filter(EventFact.event_id.in_(all_event_ids)).all()
+            fact_to_raw_map = {f.event_id: str(f.raw_id) for f in facts if f.raw_id}
+
         def format_index(m):
             ids = m.get('source_event_ids', []) if isinstance(m, dict) else (getattr(m, 'source_event_ids', []))
             t_id = m.get('target_entity_id', 0) if isinstance(m, dict) else (getattr(m, 'target_entity_id', 0))
             txt = m.get('content_text', '') if isinstance(m, dict) else getattr(m, 'content_text', '')
             
-            # 💡 [핵심 수정] FactCheckSchema가 요구하는 source_raw_id를 LLM이 알 수 있도록 원본 Raw ID를 추가로 조회하여 던져줍니다.
             raw_ids = []
             if ids:
-                facts = db.query(EventFact.raw_id).filter(EventFact.event_id.in_(ids)).all()
-                raw_ids = [str(f[0]) for f in facts if f[0]]
+                raw_ids = [fact_to_raw_map[i] for i in ids if i in fact_to_raw_map]
             
             target_str = f" | 타겟 주체 ID: {t_id}" if t_id else ""
             raw_id_str = f" | 원본 raw_id: {', '.join(raw_ids)}" if raw_ids else ""
             
             return f"- [연관 IDs: {ids}{target_str}{raw_id_str}] {txt}"
-
-        track1_list = results.get("track1", [])[:top_k]
-        track2_list = results.get("track2", [])[:top_k]
 
         track1_text = "\n".join([format_index(m) for m in track1_list])
         track2_text = "\n".join([format_index(m) for m in track2_list])
@@ -79,13 +96,6 @@ class LTMSearchNode(BaseNode):
         if track2_text:
             combined_text += f"【전역 인사이트 검색(Track 2)】\n{track2_text}\n\n"
 
-        today_memories = db.query(EventMemory).filter(
-            EventMemory.base_entity_id == context.base_entity_id,
-            EventMemory.event_date == ref_date,
-            EventMemory.memory_type == 'LTM'
-        ).all()
-        
-        unique_memories = list({m.memory_id: m for m in today_memories}.values())
         today_text = "\n".join([format_index(m) for m in unique_memories])
 
         return {

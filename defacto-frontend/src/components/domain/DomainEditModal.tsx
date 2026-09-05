@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { X, Plus, RefreshCw, Save } from 'lucide-react';
 import useLocaleFormatter from '@/hooks/useLocaleFormatter';
@@ -24,6 +24,48 @@ export default function DomainEditModal({
   const { formatDateTime } = useLocaleFormatter();
 
   const [formData, setFormData] = useState({ id: '' as string | number, name: '', type: '', parent_id: '' as string | number, status_id: 1, aliases: '', attributes: [] as {key: string, value: string}[], ne_ts: '', up_ts: '' });
+
+  // --- Drag and Drop State ---
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isOpen) setPosition({ x: 0, y: 0 }); // 닫힐 때 위치 초기화
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const deltaX = e.clientX - dragStart.current.x;
+      const deltaY = e.clientY - dragStart.current.y;
+      setPosition({
+        x: dragStart.current.posX + deltaX,
+        y: dragStart.current.posY + deltaY
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, posX: position.x, posY: position.y };
+  };
+  // ---------------------------
 
   useEffect(() => {
     if (isOpen) {
@@ -49,15 +91,29 @@ export default function DomainEditModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white p-8 rounded-2xl w-[600px] max-w-[95vw] max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
-        <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-          <h2 className="text-2xl font-extrabold text-gray-800 flex items-center gap-2">
+      <div 
+        className="bg-white rounded-2xl flex flex-col shadow-2xl border border-gray-100 relative"
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px)`,
+          width: '600px',
+          minWidth: '400px',
+          minHeight: '400px',
+          maxHeight: '90vh',
+          resize: 'both',
+          overflow: 'hidden'
+        }}
+      >
+        <div 
+          className="px-8 py-6 flex items-center justify-between border-b border-gray-100 shrink-0 cursor-move select-none"
+          onMouseDown={handleMouseDown}
+        >
+          <h2 className="text-2xl font-extrabold text-gray-800 flex items-center gap-2 pointer-events-none">
             {initialData ? t('modal_edit_master', { id: initialData.id }) : t('modal_add_master')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors"><X className="w-6 h-6" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"><X className="w-6 h-6" /></button>
         </div>
 
-        <div className="space-y-6">
+        <div className="p-8 pt-6 flex-1 overflow-y-auto space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">{t('modal_id')} <span className="font-normal text-xs text-gray-400">{t('modal_id_opt')}</span></label>
@@ -115,18 +171,18 @@ export default function DomainEditModal({
               ))}
             </div>
           </div>
+          
+          {initialData && (
+            <div className="mt-6 flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div className="flex gap-4 text-xs font-medium text-gray-400">
+                <span><strong className="text-gray-500">{t('modal_created_at')}</strong> {formatDateTime(formData.ne_ts)}</span>
+                <span><strong className="text-gray-500">{t('modal_updated_at')}</strong> {formatDateTime(formData.up_ts)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {initialData && (
-          <div className="mt-6 flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
-            <div className="flex gap-4 text-xs font-medium text-gray-400">
-              <span><strong className="text-gray-500">{t('modal_created_at')}</strong> {formatDateTime(formData.ne_ts)}</span>
-              <span><strong className="text-gray-500">{t('modal_updated_at')}</strong> {formatDateTime(formData.up_ts)}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
+        <div className="px-8 py-6 border-t border-gray-100 flex justify-end gap-3 shrink-0 bg-white">
           <button onClick={onClose} className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-base font-semibold hover:bg-gray-200 transition-colors">{tCommon('cancel')}</button>
           <button onClick={handleSaveClick} disabled={isPending} className="flex items-center gap-2 text-white px-6 py-2.5 rounded-lg font-bold transition-colors disabled:opacity-50 bg-emerald-600 hover:bg-emerald-700 shadow-md">
             {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {tCommon('save')}

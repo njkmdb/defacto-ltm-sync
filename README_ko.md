@@ -3,7 +3,7 @@
 | [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) |
 
 ![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
-![Version](https://img.shields.io/badge/version-v0.3.2-4F46E5?style=flat)
+![Version](https://img.shields.io/badge/version-v0.3.3-4F46E5?style=flat)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
@@ -212,6 +212,9 @@ API 파이프라인 로직을 'Node(모듈)' 단위로 격리후, **`PipelineOrc
 
 ---
 ## 5. 업데이트 내역 (Changelog)
+
+* **2026.09.05 (v0.3.3)**
+  - 사용자 맞춤형 AI 가이드 봇 신규 도입 및 전역 기능 연동 (F5 새로고침 시 대화 상태 유지 포함)
 
 * **2026.09.04 (v0.3.2)**
   - LRSE v0.4.0의 무상태 아키텍처 대응(동적 스키마 라우팅 연동)

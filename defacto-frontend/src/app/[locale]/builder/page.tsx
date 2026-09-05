@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { Workflow, Play, Save, FolderOpen, RefreshCw, Trash2, FileJson, Beaker, Plus, Search, ChevronLeft, ChevronRight, XCircle, Code2, Layers, Info, Lock } from 'lucide-react';
@@ -189,6 +189,7 @@ function PromptLabView() {
                </div>
 
                <div className="flex-1 overflow-y-auto p-6">
+                 {/* 미니맵 */}
                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-3 shadow-sm mb-4">
                     {PIPELINE_STEPS.map((step, idx) => {
                        const isActive = formData.pipeline_step === step;
@@ -204,6 +205,7 @@ function PromptLabView() {
                     })}
                  </div>
 
+                 {/* 컨텍스트 가이드 */}
                  {activeStepInfo && (
                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 mb-6 shadow-inner">
                      <h3 className="text-sm font-extrabold text-indigo-800 mb-2 flex items-center gap-1.5"><Info className="w-4 h-4" /> {activeStepInfo.title}</h3>
@@ -336,6 +338,41 @@ function BuilderView() {
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
 
+  // --- Drag and Drop State ---
+  const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
+  const [isModalDragging, setIsModalDragging] = useState(false);
+  const modalDragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isTestModalOpen) setModalPos({ x: 0, y: 0 });
+  }, [isTestModalOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isModalDragging) return;
+      setModalPos({
+        x: modalDragStart.current.posX + (e.clientX - modalDragStart.current.x),
+        y: modalDragStart.current.posY + (e.clientY - modalDragStart.current.y)
+      });
+    };
+    const handleMouseUp = () => { if (isModalDragging) setIsModalDragging(false); };
+    if (isModalDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isModalDragging]);
+
+  const handleModalMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsModalDragging(true);
+    modalDragStart.current = { x: e.clientX, y: e.clientY, posX: modalPos.x, posY: modalPos.y };
+  };
+  // ---------------------------
+
   const { data: presets } = useQuery({
     queryKey: ['pipelinePresets'],
     queryFn: () => getPipelinePresets(1, 50)
@@ -462,10 +499,24 @@ function BuilderView() {
 
       {isTestModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-2xl w-[800px] max-w-full max-h-[85vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden">
-            <div className="p-5 border-b border-gray-200 bg-gray-900 flex items-center justify-between shrink-0">
-              <h2 className="text-xl font-extrabold text-white flex items-center gap-2"><FileJson className="w-5 h-5 text-blue-400"/> {t('result_title')}</h2>
-              <button onClick={() => setIsTestModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">{t('btn_close')}</button>
+          <div 
+            className="bg-white rounded-2xl flex flex-col shadow-2xl border border-gray-200 overflow-hidden relative"
+            style={{
+              transform: `translate(${modalPos.x}px, ${modalPos.y}px)`,
+              width: '800px',
+              minWidth: '500px',
+              height: '80vh',
+              minHeight: '400px',
+              maxHeight: '90vh',
+              resize: 'both'
+            }}
+          >
+            <div 
+              className="p-5 border-b border-gray-200 bg-gray-900 flex items-center justify-between shrink-0 cursor-move select-none"
+              onMouseDown={handleModalMouseDown}
+            >
+              <h2 className="text-xl font-extrabold text-white flex items-center gap-2 pointer-events-none"><FileJson className="w-5 h-5 text-blue-400"/> {t('result_title')}</h2>
+              <button onClick={() => setIsTestModalOpen(false)} className="text-gray-400 hover:text-white transition-colors cursor-pointer">{t('btn_close')}</button>
             </div>
             <div className="p-6 flex-1 overflow-y-auto bg-gray-50">
               <pre className="text-xs text-gray-800 bg-white p-4 rounded-xl border border-gray-200 shadow-inner whitespace-pre-wrap font-mono">

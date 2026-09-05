@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { UploadCloud, X, AlertCircle, Database, ListTodo, Plus, RefreshCw, Save } from 'lucide-react';
 
@@ -27,19 +27,100 @@ export default function ArchiveModals({
 }: ArchiveModalsProps) {
   const t = useTranslations('Archive');
 
+  // --- Preview Modal Drag State ---
+  const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
+  const [isPreviewDragging, setIsPreviewDragging] = useState(false);
+  const previewDragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isPreviewOpen) setPreviewPos({ x: 0, y: 0 });
+  }, [isPreviewOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isPreviewDragging) return;
+      setPreviewPos({
+        x: previewDragStart.current.posX + (e.clientX - previewDragStart.current.x),
+        y: previewDragStart.current.posY + (e.clientY - previewDragStart.current.y)
+      });
+    };
+    const handleMouseUp = () => { if (isPreviewDragging) setIsPreviewDragging(false); };
+    if (isPreviewDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPreviewDragging]);
+
+  const handlePreviewMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsPreviewDragging(true);
+    previewDragStart.current = { x: e.clientX, y: e.clientY, posX: previewPos.x, posY: previewPos.y };
+  };
+
+  // --- Edit/Create Modal Drag State ---
+  const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
+  const [isModalDragging, setIsModalDragging] = useState(false);
+  const modalDragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  useEffect(() => {
+    if (!isModalOpen) setModalPos({ x: 0, y: 0 });
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isModalDragging) return;
+      setModalPos({
+        x: modalDragStart.current.posX + (e.clientX - modalDragStart.current.x),
+        y: modalDragStart.current.posY + (e.clientY - modalDragStart.current.y)
+      });
+    };
+    const handleMouseUp = () => { if (isModalDragging) setIsModalDragging(false); };
+    if (isModalDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isModalDragging]);
+
+  const handleModalMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsModalDragging(true);
+    modalDragStart.current = { x: e.clientX, y: e.clientY, posX: modalPos.x, posY: modalPos.y };
+  };
+
   return (
     <>
       {isPreviewOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-2xl w-[1200px] max-w-[95vw] h-[85vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-blue-50/50">
-              <div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div 
+            className="bg-white rounded-2xl flex flex-col shadow-2xl border border-gray-100 overflow-hidden relative"
+            style={{
+              transform: `translate(${previewPos.x}px, ${previewPos.y}px)`,
+              width: '1200px',
+              minWidth: '600px',
+              minHeight: '400px',
+              maxHeight: '90vh',
+              resize: 'both'
+            }}
+          >
+            <div 
+              className="p-6 border-b border-gray-100 flex items-center justify-between bg-blue-50/50 shrink-0 cursor-move select-none"
+              onMouseDown={handlePreviewMouseDown}
+            >
+              <div className="pointer-events-none">
                 <h2 className="text-xl font-extrabold text-gray-800 flex items-center gap-2">
                   <UploadCloud className="w-6 h-6 text-blue-600" /> {t('preview_title_log')}
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">{t('preview_desc', { count: previewData.length })}</p>
               </div>
-              <button onClick={() => setIsPreviewOpen(false)} className="text-gray-400 hover:bg-gray-100 p-2 rounded transition-colors"><X className="w-6 h-6" /></button>
+              <button onClick={() => setIsPreviewOpen(false)} className="text-gray-400 hover:bg-gray-100 p-2 rounded transition-colors cursor-pointer"><X className="w-6 h-6" /></button>
             </div>
             
             <div className="flex-1 overflow-auto p-6 bg-gray-50/50">
@@ -74,7 +155,7 @@ export default function ArchiveModals({
               </table>
             </div>
 
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-white">
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-white shrink-0">
               <button onClick={() => setIsPreviewOpen(false)} className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors">{t('preview_cancel')}</button>
               <button onClick={handleBulkUpsertConfirm} disabled={previewErrors > 0 || isBulkPending} className="flex items-center gap-2 text-white px-8 py-2.5 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700 shadow-md">
                 {isBulkPending ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />} {t('preview_confirm')}
@@ -85,16 +166,30 @@ export default function ArchiveModals({
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-2xl w-[800px] max-w-[95vw] max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
-            <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-              <h2 className="text-2xl font-extrabold text-gray-800 flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div 
+            className="bg-white rounded-2xl flex flex-col shadow-2xl border border-gray-100 relative"
+            style={{
+              transform: `translate(${modalPos.x}px, ${modalPos.y}px)`,
+              width: '800px',
+              minWidth: '400px',
+              minHeight: '400px',
+              maxHeight: '90vh',
+              resize: 'both',
+              overflow: 'hidden'
+            }}
+          >
+            <div 
+              className="px-8 py-6 flex items-center justify-between border-b border-gray-100 shrink-0 cursor-move select-none"
+              onMouseDown={handleModalMouseDown}
+            >
+              <h2 className="text-2xl font-extrabold text-gray-800 flex items-center gap-2 pointer-events-none">
                 {selectedLogId ? t('modal_edit_title', { id: selectedLogId }) : t('modal_create_title')}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700 transition-colors"><X className="w-6 h-6" /></button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"><X className="w-6 h-6" /></button>
             </div>
 
-            <div className="space-y-6">
+            <div className="flex-1 overflow-y-auto p-8 pt-6 space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">{t('modal_entity_id')} <span className="text-red-500">*</span></label>
@@ -129,7 +224,7 @@ export default function ArchiveModals({
               </div>
             </div>
 
-            <div className="mt-8 pt-4 border-t border-gray-100 flex justify-end gap-3">
+            <div className="px-8 py-6 border-t border-gray-100 flex justify-end gap-3 shrink-0 bg-white">
               <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors">{t('modal_cancel')}</button>
               <button onClick={handleSave} disabled={isSavePending} className="flex items-center gap-2 text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 shadow-md">
                 {isSavePending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {t('modal_save')}

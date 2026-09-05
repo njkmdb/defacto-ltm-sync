@@ -9,9 +9,8 @@ import { getMessages, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import Navigation from '@/components/Navigation';
-
-// 👇 [추가] 환경 설정 모달 임포트
 import AdminMenu from '@/components/AdminMenu';
+import FloatingGuideBot from '@/components/FloatingGuideBot';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -66,7 +65,6 @@ export default async function RootLayout({
                 
                 <div className="flex items-center shrink-0">
                   <LanguageSwitcher />
-                  {/* 👇 [수정] 정적 뱃지를 클릭 가능한 모달 컴포넌트로 교체 */}
                   <AdminMenu />
                 </div>
               </div>
@@ -75,6 +73,9 @@ export default async function RootLayout({
             <div className="max-w-[1600px] mx-auto">
               {children}
             </div>
+
+            <FloatingGuideBot />
+            
           </Providers>
         </NextIntlClientProvider>
       </body>

@@ -19,9 +19,9 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-LRSE_URL = os.getenv("LRSE_URL")
-SESSION_ID = os.getenv("SESSION_ID")
-SESSION_SECRET = os.getenv("SESSION_SECRET")
+LRSE_URL = os.getenv("LRSE_URL", "http://127.0.0.1:8080")
+SESSION_ID = os.getenv("SESSION_ID", "default_session")
+SESSION_SECRET = os.getenv("SESSION_SECRET", "default_secret")
 
 MAX_FETCH_LIMIT = 15
 
@@ -79,7 +79,6 @@ def get_ext_data_text(db: Session, base_entity_id: int) -> str:
         return "외부 정형 데이터 조회 중 오류가 발생했습니다."
 
 async def process_synthesize_context(request: SynthesizeContextRequest, db: Session, target_lang: str = "Korean") -> SynthesizeContextResponse:
-    # 💡 강제 주입 해제
     lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
     rag_service = RagOrchestrator(db)
     embedding_service = EmbeddingService()
@@ -172,19 +171,29 @@ async def process_synthesize_context(request: SynthesizeContextRequest, db: Sess
     )
 
 async def process_fact_check(request: FactCheckRequest, db: Session, target_lang: str = "Korean") -> dict:
-    # 💡 강제 주입 해제
     lrse_client = LRSEClient(lrse_url=LRSE_URL, session_id=SESSION_ID, session_secret=SESSION_SECRET)
     today_memories = db.query(EventMemory).filter(EventMemory.base_entity_id == request.base_entity_id, EventMemory.event_date == request.reference_date, EventMemory.memory_type == 'LTM').all()
     unique_memories = list({m.memory_id: m for m in today_memories}.values())
     if not unique_memories: return {"has_conflict": False, "discrepancies": []}
+
+    # [N+1 쿼리 최적화] 모든 source_event_ids를 수집하여 단일 쿼리로 Bulk Fetch
+    all_source_ids = set()
+    for m in unique_memories:
+        if m.source_event_ids:
+            all_source_ids.update(m.source_event_ids)
+            
+    fact_to_raw_map = {}
+    if all_source_ids:
+        facts = db.query(EventFact.event_id, EventFact.raw_id).filter(EventFact.event_id.in_(all_source_ids)).all()
+        fact_to_raw_map = {f.event_id: str(f.raw_id) for f in facts if f.raw_id}
 
     ltm_texts = []
     for m in unique_memories:
         source_ids = m.source_event_ids or []
         raw_ids = []
         if source_ids:
-            facts = db.query(EventFact.raw_id).filter(EventFact.event_id.in_(source_ids)).all()
-            raw_ids = [str(f.raw_id) for f in facts if f.raw_id]
+            raw_ids = [fact_to_raw_map[i] for i in source_ids if i in fact_to_raw_map]
+        
         raw_id_str = f" | 원본 raw_id: {', '.join(raw_ids)}" if raw_ids else ""
         ltm_texts.append(f"- [기억 ID: {m.memory_id}{raw_id_str}] {m.content_text}")
 

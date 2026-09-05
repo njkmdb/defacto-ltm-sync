@@ -58,3 +58,8 @@ uploads_nvme/
 config_dynamic.json
 pgdata/
 __pycache__/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
