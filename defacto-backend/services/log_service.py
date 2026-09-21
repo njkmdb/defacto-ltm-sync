@@ -1,11 +1,12 @@
 import json
 import math
 import logging
+import asyncio
 from datetime import datetime 
 from sqlalchemy.orm import Session
 from sqlalchemy import cast, String, and_, or_, func, text
 from sqlalchemy.dialects.postgresql import insert 
-from database.models import EventLog, EventCreation
+from database.models import EventLog, EventCreation, SysLlmMetric
 from schemas.api_schemas import SaveSummaryRequest, BulkUpsertLogRequest
 
 logger = logging.getLogger(__name__)
@@ -159,3 +160,30 @@ def get_event_log(log_id: int, base_entity_id: int, db: Session) -> dict:
         try: action_items = json.loads(action_items)
         except: action_items = []
     return {"status": "success", "data": {"log_id": log.log_id, "base_entity_id": log.base_entity_id, "log_date": log.log_date, "llm_summary": log.llm_summary, "action_items": action_items}}
+
+# 💡 [Phase 3] Fire-and-Forget 백그라운드 처리를 위한 로깅 헬퍼 함수
+def _insert_llm_metric(meta: dict, schema_name: str, base_entity_id: int):
+    from database.database import SessionLocal
+    with SessionLocal() as db:
+        try:
+            new_metric = SysLlmMetric(
+                base_entity_id=base_entity_id,
+                correlation_id=meta.get("correlation_id"),
+                schema_name=schema_name,
+                latency_ms=meta.get("latency_ms", 0),
+                prompt_tokens=meta.get("prompt_tokens", 0),
+                completion_tokens=meta.get("completion_tokens", 0),
+                total_tokens=meta.get("total_tokens", 0),
+                retry_count=meta.get("retry_count", 0)
+            )
+            db.add(new_metric)
+            db.commit()
+        except Exception as e:
+            logger.error(f"메트릭 비동기 저장 실패: {e}")
+
+async def log_metrics_async(meta: dict, schema_name: str, base_entity_id: int):
+    """LRSE에서 반환된 메타데이터를 비동기적으로 DB에 적재합니다 (Fire-and-Forget)"""
+    if not meta:
+        return
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _insert_llm_metric, meta, schema_name, base_entity_id)

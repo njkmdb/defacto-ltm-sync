@@ -65,12 +65,22 @@ export default function SystemInsightsSection() {
               <span className="text-sm font-bold text-gray-500">{t('insights_token_usage')}</span>
               <span className="text-lg font-extrabold text-gray-800">{insights.cost_stat.tokens.toLocaleString()} <span className="text-xs text-gray-400">Tokens</span></span>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-3 mb-6 overflow-hidden">
+            <div className="w-full bg-gray-100 rounded-full h-3 mb-4 overflow-hidden">
               <div className="bg-indigo-500 h-3 rounded-full" style={{ width: '45%' }}></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex flex-col items-center justify-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Avg Latency</span>
+                <span className="text-sm font-extrabold text-gray-700">{insights.cost_stat.avg_latency_ms.toLocaleString()} ms</span>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex flex-col items-center justify-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Auto Retries</span>
+                <span className="text-sm font-extrabold text-gray-700">{insights.cost_stat.total_retries.toLocaleString()} times</span>
+              </div>
             </div>
             <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100">
               <span className="text-sm font-extrabold text-indigo-800">{t('insights_est_cost')}</span>
-              <span className="text-2xl font-black text-indigo-600">${insights.cost_stat.cost.toFixed(4)}</span>
+              <span className="text-xl font-black text-indigo-600">${insights.cost_stat.cost.toFixed(6)}</span>
             </div>
           </div>
         )}

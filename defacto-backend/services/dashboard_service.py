@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, cast, Date
-from database.models import EventRaw, EventMemory, EventBriefing, ExtEvent, EventFact
+from database.models import EventRaw, EventMemory, EventBriefing, ExtEvent, EventFact, SysLlmMetric
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +64,28 @@ def get_dashboard_statistics(db: Session, base_entity_id: int) -> dict:
 def get_system_insights(db: Session, base_entity_id: int) -> dict:
     today = datetime.utcnow().date()
     
-    raws = db.query(EventRaw.raw_content).filter(
-        EventRaw.event_date == today,
-        EventRaw.base_entity_id == base_entity_id
-    ).all()
-    total_chars = sum(len(r[0]) for r in raws if r[0])
-    estimated_tokens = total_chars // 4
-    estimated_cost = (estimated_tokens / 1000) * 0.000125
+    # 💡 [NEW] LRSE에서 비동기로 수집된 실제 메트릭 데이터 집계
+    metric_stats = db.query(
+        func.sum(SysLlmMetric.total_tokens).label("total_tokens"),
+        func.avg(SysLlmMetric.latency_ms).label("avg_latency"),
+        func.sum(SysLlmMetric.retry_count).label("total_retries")
+    ).filter(
+        func.date(SysLlmMetric.created_at) == today,
+        SysLlmMetric.base_entity_id == base_entity_id
+    ).first()
+
+    actual_tokens = int(metric_stats.total_tokens or 0)
+    avg_latency = int(metric_stats.avg_latency or 0)
+    total_retries = int(metric_stats.total_retries or 0)
+    
+    # 가격 정책 (Gemini 1.5 Flash 기준: 1M 토큰당 약 $0.075로 산정)
+    actual_cost = (actual_tokens / 1000000) * 0.075
     
     cost_stat = {
-        "tokens": estimated_tokens,
-        "cost": round(estimated_cost, 4)
+        "tokens": actual_tokens,
+        "cost": round(actual_cost, 6),
+        "avg_latency_ms": avg_latency,
+        "total_retries": total_retries
     }
     
     from collections import Counter

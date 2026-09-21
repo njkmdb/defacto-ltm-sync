@@ -25,6 +25,8 @@ export interface DashboardStatisticsResponse {
 export interface CostStat {
   tokens: number;
   cost: number;
+  avg_latency_ms: number;
+  total_retries: number;
 }
 
 export interface KeywordStat {

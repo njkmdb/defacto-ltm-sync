@@ -25,6 +25,8 @@ class DashboardStatisticsResponse(BaseModel):
 class CostStat(BaseModel):
     tokens: int
     cost: float
+    avg_latency_ms: int = 0
+    total_retries: int = 0
 
 class KeywordStat(BaseModel):
     text: str

@@ -3,7 +3,7 @@
 | [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) 
 
 ![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
-![Version](https://img.shields.io/badge/version-v0.3.2-4F46E5?style=flat)
+![Version](https://img.shields.io/badge/version-v0.3.4-4F46E5?style=flat)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
@@ -210,6 +210,12 @@ APIパイプラインロジックを「Node(モジュール)」単位で隔離�
 ---
 
 ## 5. アップデート履歴 (Changelog)
+
+* **2026.09.22 (v0.3.4)**
+  - LRSE応答メタデータ (`sys_llm_metrics`) の非同期DB保存ロジックを追加
+  - フロントエンドダッシュボードのコストタブに実際のトークン、コスト、遅延時間、再試行回数の表示を追加
+  - メトリクス照会APIにテナント (`base_entity_id`) 分離条件を適用
+
 * **2026.09.05 (v0.3.3)**
   - ユーザーカスタマイズ型AIガイドボットの新規導入およびグローバル機能連携（F5更新時の対話状態の維持を含む）
 

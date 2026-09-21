@@ -1,21 +1,25 @@
 import httpx
 import logging
+import uuid
+import asyncio
 from pydantic import BaseModel
 from typing import Type, TypeVar, Any
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 from services.system_service import get_dynamic_settings
+from services.log_service import log_metrics_async
 
 T = TypeVar('T', bound=BaseModel)
 logger = logging.getLogger(__name__)
 
 class LRSEClient:
-    def __init__(self, lrse_url: str, session_id: str, session_secret: str, api_key: str = None, model_name: str = None):
+    def __init__(self, lrse_url: str, session_id: str, session_secret: str, api_key: str = None, model_name: str = None, base_entity_id: int = 1024):
         settings = get_dynamic_settings()
         
         self.lrse_url = lrse_url.rstrip("/")
         self.session_id = session_id
         self.session_secret = session_secret
+        self.base_entity_id = base_entity_id # 💡 Added for tenant isolation
         
         # 👇 [하드코딩 제거] 외부에서 값이 넘어오지 않았다면 환경 설정값(auto)을 사용합니다.
         self.api_key = api_key if api_key else settings.get("GEMINI_API_KEY", "")
@@ -65,12 +69,17 @@ class LRSEClient:
         if max_tokens:
             payload["max_output_tokens"] = max_tokens
 
+        # 💡 [Phase 3] 분산 추적을 위한 X-Correlation-ID 발급 및 헤더 주입
+        correlation_id = str(uuid.uuid4())
+        request_headers = self.headers.copy()
+        request_headers["X-Correlation-ID"] = correlation_id
+
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(
                     endpoint,
                     params={"session_id": self.session_id},
-                    headers=self.headers,
+                    headers=request_headers,
                     json=payload,
                     timeout=60.0 
                 )
@@ -78,6 +87,13 @@ class LRSEClient:
                 
                 response_data = response.json()
                 validated_json = response_data.get("validated_data", {})
+                meta_data = response_data.get("meta", {})
+                
+                # 💡 [Phase 3] 사이드 이펙트 없는 메트릭 비동기 로깅 (Fire-and-Forget)
+                if meta_data:
+                    if not meta_data.get("correlation_id"):
+                        meta_data["correlation_id"] = response.headers.get("X-Correlation-ID", correlation_id)
+                    asyncio.create_task(log_metrics_async(meta_data, schema_name, self.base_entity_id))
                 
                 return target_schema_cls.model_validate(validated_json)
 

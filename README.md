@@ -3,7 +3,7 @@
 | [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) 
 
 ![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
-![Version](https://img.shields.io/badge/version-v0.3.2-4F46E5?style=flat)
+![Version](https://img.shields.io/badge/version-v0.3.4-4F46E5?style=flat)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
@@ -241,6 +241,11 @@ Isolates API pipeline logic into 'Node (Module)' units, orchestrated by the **`P
 ---
 
 ## 5. Changelog
+
+* **2026.09.22 (v0.3.4)**
+  - Added asynchronous DB insertion logic for LRSE response metadata (`sys_llm_metrics`)
+  - Added actual tokens, cost, latency, and retry counts to the frontend dashboard's cost tab
+  - Applied tenant (`base_entity_id`) isolation conditions to the metric query APIs
 
 * **2026.09.05 (v0.3.3)**
   - Introduction of a personalized AI Guide Bot and global feature integration (including chat state retention upon F5 refresh)

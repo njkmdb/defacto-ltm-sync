@@ -260,3 +260,21 @@ class ExtEvent(Base):
     attributes = Column(JSONB, default={}, comment="기타 범용 속성 (JSONB 형태)")
     up_ts = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     ne_ts = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+# =====================================================================
+# 9. CORE 스키마: 메트릭 및 시스템 관측성 (Observability)
+# =====================================================================
+class SysLlmMetric(Base):
+    __tablename__ = 'sys_llm_metrics'
+    __table_args__ = {'schema': 'core'}
+
+    metric_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    base_entity_id = Column(BigInteger, nullable=False, default=1024)
+    correlation_id = Column(String(100), nullable=True, comment="분산 추적용 ID")
+    schema_name = Column(String(100), nullable=True, comment="요청된 스키마 이름")
+    latency_ms = Column(Integer, default=0, nullable=False)
+    prompt_tokens = Column(Integer, default=0, nullable=False)
+    completion_tokens = Column(Integer, default=0, nullable=False)
+    total_tokens = Column(Integer, default=0, nullable=False)
+    retry_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
