@@ -1,0 +1,60 @@
+# =====================================================================
+# 1. Cross-Platform Line Ending Normalization (Windows <-> Docker Linux)
+# =====================================================================
+* text=auto eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.mako text eol=lf
+*.md text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+Dockerfile text eol=lf
+
+# Windows Batch / PowerShell scripts (if any)
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files protection
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp3 binary
+*.m4a binary
+*.wav binary
+*.pdf binary
+
+# =====================================================================
+# 2. GitHub Linguist & Findy Algorithm Optimization
+#    (Elevate Python/FastAPI/LLMOps as Primary Repository Language)
+# =====================================================================
+
+# Lockfiles & Auto-generated Frontend Configs (Exclude from stats)
+defacto-frontend/package-lock.json linguist-generated=true
+defacto-frontend/next-env.d.ts linguist-generated=true
+defacto-frontend/postcss.config.mjs linguist-generated=true
+defacto-frontend/eslint.config.mjs linguist-generated=true
+defacto-frontend/public/** linguist-generated=true
+
+# Large i18n Translation Dictionaries (Exclude from code complexity dilution)
+defacto-frontend/messages/*.json linguist-generated=true
+
+# Repetitive UI View/Modal Boilerplate (Keep core store/api/app in stats,
+# mark heavy CRUD modals as generated so Python dominates language ratio)
+defacto-frontend/src/components/modals/** linguist-generated=true
+defacto-frontend/src/components/domain/** linguist-generated=true
+defacto-frontend/src/components/archive/** linguist-generated=true
+
+# Initial Auto-generated Alembic Scaffolding Revisions
+defacto-backend/alembic/versions/a2266ef816ba_sync_multimodal_pipeline_v3.py linguist-generated=true
+defacto-backend/alembic/versions/f1ed3329d581_add_event_date_to_event_memories.py linguist-generated=true
+
+# Documentation files
+*.md linguist-documentation=true

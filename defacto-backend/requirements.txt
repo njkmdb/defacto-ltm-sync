@@ -14,3 +14,8 @@ Pillow
 python-multipart
 apscheduler
 tenacity
+pytest
+pytest-asyncio
+pytest-cov
+ruff
+mypy
