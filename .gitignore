@@ -63,3 +63,12 @@ __pycache__/
 __pycache__/
 *.py[cod]
 *$py.class
+# QA & Test Toolchain Caches
+.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+defacto-backend/.coverage
+defacto-backend/.pytest_cache/
+defacto-backend/.ruff_cache/
+defacto-backend/.mypy_cache/
