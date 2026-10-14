@@ -33,24 +33,24 @@ Dockerfile text eol=lf
 
 # =====================================================================
 # 2. GitHub Linguist & Findy Algorithm Optimization
-#    (Elevate Python/FastAPI/LLMOps as Primary Repository Language)
+#    (Target Ratio: Python 80~85% / TypeScript 15~20%)
 # =====================================================================
 
-# Lockfiles & Auto-generated Frontend Configs (Exclude from stats)
+# Lockfiles & Auto-generated Frontend Configs
 defacto-frontend/package-lock.json linguist-generated=true
 defacto-frontend/next-env.d.ts linguist-generated=true
 defacto-frontend/postcss.config.mjs linguist-generated=true
 defacto-frontend/eslint.config.mjs linguist-generated=true
 defacto-frontend/public/** linguist-generated=true
 
-# Large i18n Translation Dictionaries (Exclude from code complexity dilution)
+# Large i18n Translation Dictionaries
 defacto-frontend/messages/*.json linguist-generated=true
 
-# Repetitive UI View/Modal Boilerplate (Keep core store/api/app in stats,
-# mark heavy CRUD modals as generated so Python dominates language ratio)
-defacto-frontend/src/components/modals/** linguist-generated=true
-defacto-frontend/src/components/domain/** linguist-generated=true
-defacto-frontend/src/components/archive/** linguist-generated=true
+# Frontend UI Markup & Tailwind View Layers (.tsx)
+# (Keep src/lib, src/store, src/types, src/hooks in TypeScript stats;
+#  exclude heavy JSX/Tailwind UI components so Python dominates repository stats)
+defacto-frontend/src/components/** linguist-generated=true
+defacto-frontend/src/app/** linguist-generated=true
 
 # Initial Auto-generated Alembic Scaffolding Revisions
 defacto-backend/alembic/versions/a2266ef816ba_sync_multimodal_pipeline_v3.py linguist-generated=true
