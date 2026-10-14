@@ -2,7 +2,7 @@
 
 | [🇺🇸 English](README.md) | [🇰🇷 한국어](README_ko.md) | [🇯🇵 日本語](README_ja.md) |
 
-![100% AI Generated](https://img.shields.io/badge/100%25_AI_Generated-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
+![Human-Architected | 100% AI-Coded](https://img.shields.io/badge/Human--Architected-100%25_AI--Coded-8A2BE2?style=flat&logo=googlegemini&logoColor=white)
 ![Version](https://img.shields.io/badge/version-v0.3.4-4F46E5?style=flat)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
