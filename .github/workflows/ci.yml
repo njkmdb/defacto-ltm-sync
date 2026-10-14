@@ -1,0 +1,120 @@
+name: Defacto LTM-Sync CI Pipeline
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =========================================================================
+  # Job 1: Backend CI (FastAPI, Pydantic, pgvector, Alembic, Pytest)
+  # =========================================================================
+  backend-ci:
+    name: "Backend: Lint, Typecheck & Async Pytest (Python 3.12)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./defacto-backend
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: defacto_test_user
+          POSTGRES_PASSWORD: defacto_test_password
+          POSTGRES_DB: defacto_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PYTHONPATH: "."
+      ENVIRONMENT: test
+      DATABASE_URL: postgresql://defacto_test_user:defacto_test_password@localhost:5432/defacto_test_db
+      GEMINI_API_KEY: "dummy-gemini-key-for-ci-testing"
+      MODEL_NAME: "auto"
+      LRSE_URL: "http://127.0.0.1:8081"
+      SESSION_ID: "ci_test_session"
+      SESSION_SECRET: "ci_test_secret"
+      USE_BIGQUERY: "False"
+      GCP_PROJECT_ID: "dummy-gcp-project-ci"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "./defacto-backend/requirements.txt"
+
+      - name: Install Backend Dependencies & QA Toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff mypy pytest pytest-asyncio pytest-cov
+
+      - name: Initialize Schemas & pgvector Extension on Test DB
+        env:
+          PGPASSWORD: defacto_test_password
+        run: |
+          psql -h localhost -U defacto_test_user -d defacto_test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          psql -h localhost -U defacto_test_user -d defacto_test_db -c "CREATE SCHEMA IF NOT EXISTS domain; CREATE SCHEMA IF NOT EXISTS raw; CREATE SCHEMA IF NOT EXISTS core; CREATE SCHEMA IF NOT EXISTS ext;"
+
+      - name: Run Ruff Linter (Static Code Analysis)
+        run: |
+          ruff check . --select=E9,F63,F7,F82 --output-format=github
+          ruff check routers services schemas database main.py --exit-zero
+
+      - name: Run Mypy Static Type Checker
+        run: |
+          mypy routers services schemas database main.py --ignore-missing-imports --no-strict-optional || true
+
+      - name: Execute Async Unit & Architecture Tests (Pytest)
+        run: |
+          pytest tests/ -v --cov=services --cov=routers --cov=schemas --cov-report=term-missing
+
+  # =========================================================================
+  # Job 2: Frontend CI (Next.js 16 App Router, TypeScript, ESLint)
+  # =========================================================================
+  frontend-ci:
+    name: "Frontend: TypeScript & ESLint Check (Node 20)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./defacto-frontend
+
+    env:
+      NEXT_PUBLIC_API_URL: "http://127.0.0.1:8080"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "./defacto-frontend/package-lock.json"
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Run Next.js ESLint
+        run: npm run lint --if-present
+
+      - name: Build Next.js Production Bundle
+        run: npm run build
