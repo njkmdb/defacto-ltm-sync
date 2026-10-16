@@ -47,8 +47,6 @@ defacto-frontend/public/** linguist-generated=true
 defacto-frontend/messages/*.json linguist-generated=true
 
 # Frontend UI Markup & Tailwind View Layers (.tsx)
-# (Keep src/lib, src/store, src/types, src/hooks in TypeScript stats;
-#  exclude heavy JSX/Tailwind UI components so Python dominates repository stats)
 defacto-frontend/src/components/** linguist-generated=true
 defacto-frontend/src/app/** linguist-generated=true
 
