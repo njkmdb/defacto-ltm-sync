@@ -11,8 +11,8 @@ BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if BACKEND_ROOT not in sys.path:
     sys.path.insert(0, BACKEND_ROOT)
 
-# 모듈 임포트 전 필수 환경변수 기본값 강제 세팅 (NoneType 에러 원천 차단)
-os.environ.setdefault("DATABASE_URL", "postgresql://user:password@localhost:5432/defacto_test")
+# 모듈 임포트 전 필수 환경변수 강제 세팅 (psycopg2 드라이버 명시 및 NoneType 에러 원천 차단)
+os.environ["DATABASE_URL"] = "postgresql+psycopg2://user:password@localhost:5432/defacto_test"
 os.environ.setdefault("GEMINI_API_KEY", "test-gemini-api-key")
 os.environ.setdefault("MODEL_NAME", "auto")
 os.environ.setdefault("LRSE_URL", "http://127.0.0.1:8081")
